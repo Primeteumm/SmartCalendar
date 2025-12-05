@@ -14,11 +14,19 @@ class Note extends HiveObject {
   @HiveField(3)
   DateTime createdAt;
 
+  @HiveField(4)
+  String? title;
+
+  @HiveField(5)
+  DateTime date;
+
   Note({
     required this.id,
     required this.eventId,
     required this.content,
     required this.createdAt,
+    this.title,
+    required this.date,
   });
 
   Map<String, dynamic> toJson() {
@@ -27,6 +35,8 @@ class Note extends HiveObject {
       'eventId': eventId,
       'content': content,
       'createdAt': createdAt.toIso8601String(),
+      'title': title,
+      'date': date.toIso8601String(),
     };
   }
 
@@ -36,6 +46,8 @@ class Note extends HiveObject {
       eventId: json['eventId'],
       content: json['content'],
       createdAt: DateTime.parse(json['createdAt']),
+      title: json['title'],
+      date: DateTime.parse(json['date']),
     );
   }
 }

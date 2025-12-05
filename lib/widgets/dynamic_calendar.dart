@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/event.dart';
+import '../models/note.dart';
 import 'view_mode_selector.dart';
 
 class DynamicCalendar extends StatefulWidget {
   final DateTime selectedDate;
   final List<Event> events;
+  final List<Note> notes;
   final Function(DateTime) onDateSelected;
   final CalendarViewMode viewMode;
+  final Function(CalendarViewMode) onViewModeChanged;
 
   const DynamicCalendar({
     super.key,
     required this.selectedDate,
     required this.events,
+    required this.notes,
     required this.onDateSelected,
     required this.viewMode,
+    required this.onViewModeChanged,
   });
 
   @override
@@ -112,6 +117,70 @@ class _DynamicCalendarState extends State<DynamicCalendar> {
     }).toList();
   }
 
+  List<Note> _getNotesForDate(DateTime date) {
+    return widget.notes.where((note) {
+      return note.date.year == date.year &&
+          note.date.month == date.month &&
+          note.date.day == date.day;
+    }).toList();
+  }
+
+  Widget _buildNoteIndicators(int count) {
+    if (count == 0) return const SizedBox.shrink();
+    
+    final displayCount = count > 6 ? 6 : count;
+    final rows = (displayCount / 3).ceil();
+    final List<Widget> dots = [];
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    
+    for (int row = 0; row < rows && row < 2; row++) {
+      final startIndex = row * 3;
+      final endIndex = (startIndex + 3 < displayCount) ? startIndex + 3 : displayCount;
+      final rowDots = <Widget>[];
+      
+      for (int i = startIndex; i < endIndex; i++) {
+        rowDots.add(
+          Container(
+            width: 5,
+            height: 5,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              color: primaryColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: primaryColor.withOpacity(0.4),
+                  blurRadius: 2,
+                  spreadRadius: 0.3,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      
+      dots.add(
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: rowDots,
+        ),
+      );
+      // Add spacing between rows
+      if (row < rows - 1 && row < 1) {
+        dots.add(const SizedBox(height: 3));
+      }
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: dots,
+      ),
+    );
+  }
+
   bool _isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
         date1.month == date2.month &&
@@ -126,7 +195,7 @@ class _DynamicCalendarState extends State<DynamicCalendar> {
   @override
   Widget build(BuildContext context) {
     final days = _getDaysToDisplay();
-    final weekdays = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+    final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return Column(
       children: [
@@ -162,11 +231,51 @@ class _DynamicCalendarState extends State<DynamicCalendar> {
                   });
                 },
               ),
-              Text(
-                widget.viewMode == CalendarViewMode.monthly
-                    ? DateFormat('MMMM yyyy', 'tr_TR').format(_currentStartDate)
-                    : '${DateFormat('d MMM', 'tr_TR').format(days.first)} - ${DateFormat('d MMM yyyy', 'tr_TR').format(days.last)}',
-                style: Theme.of(context).textTheme.titleLarge,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    DateFormat('MMMM yyyy', 'en_US').format(_currentStartDate),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: () {
+                      CalendarViewMode newMode;
+                      switch (widget.viewMode) {
+                        case CalendarViewMode.monthly:
+                          newMode = CalendarViewMode.twoWeeks;
+                          break;
+                        case CalendarViewMode.twoWeeks:
+                          newMode = CalendarViewMode.weekly;
+                          break;
+                        case CalendarViewMode.weekly:
+                          newMode = CalendarViewMode.monthly;
+                          break;
+                      }
+                      widget.onViewModeChanged(newMode);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        widget.viewMode == CalendarViewMode.monthly
+                            ? 'Month'
+                            : widget.viewMode == CalendarViewMode.twoWeeks
+                                ? '2 Week'
+                                : 'Week',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_right),
@@ -230,6 +339,7 @@ class _DynamicCalendarState extends State<DynamicCalendar> {
             itemBuilder: (context, index) {
               final date = days[index];
               final events = _getEventsForDate(date);
+              final notes = _getNotesForDate(date);
               final isSelected = _isSameDay(date, widget.selectedDate);
               final isCurrentMonth = widget.viewMode == CalendarViewMode.monthly
                   ? _isCurrentMonth(date)
@@ -270,15 +380,10 @@ class _DynamicCalendarState extends State<DynamicCalendar> {
                                   : FontWeight.normal,
                             ),
                       ),
-                      if (events.isNotEmpty)
-                        Container(
-                          margin: const EdgeInsets.only(top: 4),
-                          height: 4,
-                          width: 4,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
-                          ),
+                      if (events.isNotEmpty || notes.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: _buildNoteIndicators(events.length + notes.length),
                         ),
                     ],
                   ),
