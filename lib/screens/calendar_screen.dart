@@ -8,6 +8,7 @@ import '../widgets/notes_section.dart';
 import '../widgets/view_mode_selector.dart';
 import '../screens/add_note_screen.dart';
 import '../models/note.dart';
+import '../widgets/scan_schedule_dialog.dart';
 import 'settings_screen.dart';
 import 'ai_assistant_screen.dart';
 
@@ -82,6 +83,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
         title: const Text('SmartCalendar'),
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.document_scanner_rounded),
+            tooltip: 'Takvimi Tara',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => const ScanScheduleDialog(),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () {
