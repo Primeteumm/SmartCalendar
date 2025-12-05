@@ -66,11 +66,14 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
       // Use calendar message method which includes system prompt
       final result = await GeminiService.sendCalendarMessage(message);
       final responseText = result['response'] as String;
-      final hasCalendarAction = result['hasCalendarAction'] as bool;
 
       // Try to parse calendar action from response
-      CalendarAction? calendarAction;
-      if (hasCalendarAction) {
+      // ALWAYS try to parse to ensure we capture every request
+      CalendarAction? calendarAction = CalendarActionParser.parseResponse(responseText);
+      
+      // If no JSON was found but response contains calendar intent, create a note anyway
+      if (calendarAction == null && CalendarActionParser.hasCalendarIntent(responseText)) {
+        debugPrint('No JSON found but calendar intent detected, creating fallback note');
         calendarAction = CalendarActionParser.parseResponse(responseText);
       }
 
@@ -84,6 +87,21 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
           finalResponse = _generateConfirmationMessage(calendarAction);
         } else {
           finalResponse = 'Üzgünüm, takvime eklerken bir hata oluştu.';
+        }
+      } else {
+        // Even if parsing failed, if the message seems calendar-related, create a note
+        if (CalendarActionParser.hasCalendarIntent(message)) {
+          debugPrint('Creating note from user message directly');
+          final fallbackAction = CalendarAction(
+            noteContent: message,
+            datetime: DateTime.now(),
+            isAllDay: true,
+            type: 'note',
+          );
+          final saved = await _saveCalendarAction(fallbackAction, userMessage: message);
+          if (saved) {
+            finalResponse = '✅ Notunuz takvime eklendi: "$message"';
+          }
         }
       }
 
@@ -116,32 +134,37 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
         // Create Event
         final event = Event(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          title: action.title,
+          title: action.displayTitle, // Use displayTitle which is always non-null
           date: action.datetime,
-          description: action.description,
+          description: action.description ?? action.noteContent, // Use noteContent as fallback
           time: DateFormat('HH:mm').format(action.datetime),
         );
 
         final eventProvider = Provider.of<EventProvider>(context, listen: false);
         await eventProvider.addEvent(event);
         return true;
-      } else if (action.type == 'note') {
-        // Create Note with JSON formatted content
-        // Content will contain the JSON representation of the calendar action
+      } else if (action.type == 'note' || action.type == null) {
+        // Create Note with note_content as primary content
+        // Store the full JSON representation for reference
         final jsonContent = jsonEncode({
           'userMessage': userMessage,
-          'title': action.title,
-          'description': action.description,
+          'note_content': action.noteContent,
           'datetime': action.datetime.toIso8601String(),
-          'type': action.type,
+          'is_all_day': action.isAllDay,
+          // Legacy fields for backward compatibility
+          if (action.title != null) 'title': action.title,
+          if (action.description != null) 'description': action.description,
+          'type': action.type ?? 'note',
         });
 
+        // Use noteContent as the primary content, with JSON as metadata
+        // For display, we'll use noteContent directly
         final note = Note(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           eventId: '', // Standalone note, not attached to an event
-          content: jsonContent, // JSON formatında kullanıcı mesajı ve action bilgileri
+          content: action.noteContent, // Use note_content as primary content
           createdAt: DateTime.now(),
-          title: action.title, // Title olarak action title'ı kullan
+          title: action.displayTitle.isNotEmpty ? action.displayTitle : action.noteContent.split('\n').first, // Use display title for UI, fallback to first line of content
           date: action.datetime,
         );
 
@@ -153,7 +176,9 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
         
         debugPrint('Note saved successfully: ${note.id}');
         debugPrint('Note date: ${note.date}');
+        debugPrint('Note content: ${note.content}');
         debugPrint('Note title: ${note.title}');
+        debugPrint('Full JSON: $jsonContent');
         
         return true;
       }
@@ -169,12 +194,14 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
     final dateFormat = DateFormat('d MMMM yyyy', 'tr_TR');
     final timeFormat = DateFormat('HH:mm');
     final formattedDate = dateFormat.format(action.datetime);
-    final formattedTime = timeFormat.format(action.datetime);
-
-    if (action.type == 'event') {
-      return '✅ "${action.title}" etkinliğini takviminize ${formattedDate} tarihinde saat ${formattedTime} için ekledim.';
+    
+    final displayText = action.displayTitle;
+    
+    if (action.isAllDay) {
+      return '✅ "$displayText" notunu takviminize ${formattedDate} tarihi için (tüm gün) ekledim.';
     } else {
-      return '✅ "${action.title}" notunu takviminize ${formattedDate} tarihinde saat ${formattedTime} için ekledim.';
+      final formattedTime = timeFormat.format(action.datetime);
+      return '✅ "$displayText" notunu takviminize ${formattedDate} tarihinde saat ${formattedTime} için ekledim.';
     }
   }
 

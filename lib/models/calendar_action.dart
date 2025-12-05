@@ -1,47 +1,83 @@
 /// Model representing a calendar action (event or note) from AI assistant
 class CalendarAction {
-  final String title;
+  // Legacy fields for backward compatibility
+  final String? title;
   final String? description;
-  final DateTime datetime;
-  final String type; // "event" or "note"
+  final String? type; // "event" or "note" - deprecated, all actions are notes now
+  
+  // New required fields
+  final String noteContent; // MANDATORY - The full detail of the note
+  final DateTime datetime; // MANDATORY - ISO 8601 datetime
+  final bool isAllDay; // Optional - true if no specific time is given
 
   CalendarAction({
-    required this.title,
-    this.description,
-    required this.datetime,
-    required this.type,
+    this.title, // Optional for backward compatibility
+    this.description, // Optional
+    this.type, // Optional, defaults to "note"
+    required this.noteContent, // MANDATORY
+    required this.datetime, // MANDATORY
+    this.isAllDay = false, // Default to false
   });
 
-  /// Create from JSON map
+  /// Create from JSON map - supports both old and new formats
   factory CalendarAction.fromJson(Map<String, dynamic> json) {
-    return CalendarAction(
-      title: json['title'] as String,
-      description: json['description'] as String?,
-      datetime: DateTime.parse(json['datetime'] as String),
-      type: json['type'] as String,
-    );
+    // Support new format with note_content
+    if (json.containsKey('note_content')) {
+      return CalendarAction(
+        noteContent: json['note_content'] as String,
+        datetime: DateTime.parse(json['datetime'] as String),
+        isAllDay: json['is_all_day'] as bool? ?? false,
+        // Legacy fields for backward compatibility
+        title: json['title'] as String?,
+        description: json['description'] as String?,
+        type: json['type'] as String? ?? 'note',
+      );
+    }
+    
+    // Support old format with title (for backward compatibility)
+    if (json.containsKey('title')) {
+      return CalendarAction(
+        title: json['title'] as String,
+        description: json['description'] as String?,
+        datetime: DateTime.parse(json['datetime'] as String),
+        type: json['type'] as String? ?? 'note',
+        // Use title as noteContent for old format
+        noteContent: json['title'] as String,
+        isAllDay: json['is_all_day'] as bool? ?? false,
+      );
+    }
+    
+    // Fallback: use description or empty string
+    throw FormatException('Invalid JSON format: missing note_content or title');
   }
 
   /// Convert to JSON map
   Map<String, dynamic> toJson() {
     return {
-      'title': title,
-      'description': description,
+      'note_content': noteContent,
       'datetime': datetime.toIso8601String(),
-      'type': type,
+      'is_all_day': isAllDay,
+      // Include legacy fields for backward compatibility
+      if (title != null) 'title': title,
+      if (description != null) 'description': description,
+      if (type != null) 'type': type,
     };
   }
 
   /// Validate the calendar action
   bool isValid() {
-    return title.isNotEmpty && 
-           (type == 'event' || type == 'note') &&
+    return noteContent.isNotEmpty && 
            datetime.isAfter(DateTime(2000));
+  }
+
+  /// Get display title (for UI compatibility)
+  String get displayTitle {
+    return title ?? noteContent.split('\n').first.split('.').first.trim();
   }
 
   @override
   String toString() {
-    return 'CalendarAction(title: $title, type: $type, datetime: $datetime)';
+    return 'CalendarAction(noteContent: $noteContent, datetime: $datetime, isAllDay: $isAllDay)';
   }
 }
 

@@ -8,6 +8,7 @@ import 'services/gemini_service.dart';
 import 'providers/event_provider.dart';
 import 'providers/note_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/settings_provider.dart';
 import 'screens/main_screen.dart';
 
 void main() async {
@@ -43,7 +44,7 @@ void main() async {
   
   // Initialize Hive storage
   try {
-    await StorageService.init();
+  await StorageService.init();
   } catch (e, stackTrace) {
     debugPrint('Error initializing storage: $e');
     debugPrint('Stack trace: $stackTrace');
@@ -71,16 +72,17 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => EventProvider()),
         ChangeNotifierProvider(create: (_) => NoteProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
           return MaterialApp(
-            title: 'Smart Calendar',
+        title: 'Smart Calendar',
             theme: themeProvider.getTheme(),
             darkTheme: themeProvider.getTheme(),
             themeMode: themeProvider.themeMode,
-            home: const MainScreen(),
-            debugShowCheckedModeBanner: false,
+        home: const MainScreen(),
+        debugShowCheckedModeBanner: false,
           );
         },
       ),
