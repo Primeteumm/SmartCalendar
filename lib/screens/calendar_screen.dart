@@ -37,6 +37,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // Daily briefing state
   bool _isLoadingBriefing = false;
 
+  // DraggableScrollableSheet controller
+  final DraggableScrollableController _draggableScrollableController =
+      DraggableScrollableController();
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +49,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUserNameAndLoadBriefing();
     });
+  }
+
+  @override
+  void dispose() {
+    _draggableScrollableController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSheetPosition() {
+    final currentSize = _draggableScrollableController.size;
+    
+    // Toggle between middle (0.3) and max (0.9)
+    double nextSize = currentSize < 0.6 ? 0.9 : 0.3;
+    
+    _draggableScrollableController.animateTo(
+      nextSize,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   Future<void> _loadAiButtonPosition() async {
@@ -434,11 +457,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               // Draggable Notes section
               DraggableScrollableSheet(
+                controller: _draggableScrollableController,
                 initialChildSize: 0.3,
-                minChildSize: 0.1,
+                minChildSize: 0.3,
                 maxChildSize: 0.9,
                 snap: true,
-                snapSizes: const [0.1, 0.3, 0.9],
+                snapSizes: const [0.3, 0.9],
                 builder: (context, scrollController) {
                   return NotesSection(
                 selectedDate: _selectedDate,
@@ -448,6 +472,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onEventTap: (event) {
                   // Show event details or edit
                 },
+                onDragHandleTap: _toggleSheetPosition,
                   );
                 },
               ),

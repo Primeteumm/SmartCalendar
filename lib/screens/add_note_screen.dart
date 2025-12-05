@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/note.dart';
+import 'location_picker_screen.dart';
 
 class AddNoteScreen extends StatefulWidget {
   final DateTime initialDate;
@@ -19,6 +20,9 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
   final _titleController = TextEditingController();
   final _contentController = TextEditingController();
   DateTime? _selectedDate;
+  double? _selectedLatitude;
+  double? _selectedLongitude;
+  String? _selectedLocationName;
   bool _isLoading = false;
 
   @override
@@ -48,6 +52,27 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
     }
   }
 
+  Future<void> _selectLocation(BuildContext context) async {
+    final result = await Navigator.of(context).push<Map<String, double>>(
+      MaterialPageRoute(
+        builder: (context) => LocationPickerScreen(
+          initialLatitude: _selectedLatitude,
+          initialLongitude: _selectedLongitude,
+        ),
+      ),
+    );
+
+    if (result != null && result['latitude'] != null && result['longitude'] != null) {
+      setState(() {
+        _selectedLatitude = result['latitude']!;
+        _selectedLongitude = result['longitude']!;
+      });
+      debugPrint('Location selected: ${_selectedLatitude}, ${_selectedLongitude}');
+    } else {
+      debugPrint('Location selection cancelled or invalid');
+    }
+  }
+
   Future<void> _submit() async {
     if (_formKey.currentState!.validate() && _selectedDate != null) {
       setState(() {
@@ -59,11 +84,16 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
       final note = Note(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         eventId: '',
-        title: _titleController.text.isEmpty ? null : _titleController.text,
-        content: _contentController.text,
+        title: _titleController.text.trim(),
+        content: _contentController.text.trim().isEmpty ? '' : _contentController.text.trim(),
         createdAt: DateTime.now(),
         date: _selectedDate!,
+        latitude: _selectedLatitude,
+        longitude: _selectedLongitude,
+        locationName: _selectedLocationName,
       );
+      
+      debugPrint('Creating note with location: ${note.latitude}, ${note.longitude}');
 
       if (mounted) {
         Navigator.of(context).pop(note);
@@ -86,7 +116,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'New Note',
+          'New Event',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -161,10 +191,70 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    // Location Picker
+                    InkWell(
+                      onTap: () => _selectLocation(context),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.location_on_rounded,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Location',
+                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _selectedLatitude != null && _selectedLongitude != null
+                                        ? '${_selectedLatitude!.toStringAsFixed(4)}, ${_selectedLongitude!.toStringAsFixed(4)}'
+                                        : 'Select location (optional)',
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 32),
-                    // Note Title
+                    // Event Title
                     Text(
-                      'Note Title (Optional)',
+                      'Event Title *',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -182,11 +272,17 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                         contentPadding: const EdgeInsets.all(20),
                       ),
                       maxLines: 1,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter an event title';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 32),
-                    // Note Content
+                    // Event Content
                     Text(
-                      'Note Content *',
+                      'Event Content (Optional)',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -204,12 +300,6 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                         contentPadding: const EdgeInsets.all(20),
                       ),
                       maxLines: 12,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Please enter a note';
-                        }
-                        return null;
-                      },
                     ),
                   ],
                 ),
@@ -231,7 +321,7 @@ class _AddNoteScreenState extends State<AddNoteScreen> {
                           ),
                         )
                       : const Icon(Icons.add_rounded),
-                  label: const Text('Add New Note'),
+                  label: const Text('Add New Event'),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(double.infinity, 60),
                     shape: RoundedRectangleBorder(
