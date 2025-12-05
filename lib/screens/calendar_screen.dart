@@ -132,13 +132,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 snapSizes: const [0.1, 0.3, 0.9],
                 builder: (context, scrollController) {
                   return NotesSection(
-                    selectedDate: _selectedDate,
-                    eventsOnDate: eventsOnDate,
-                    notesOnDate: notesOnDate,
+                selectedDate: _selectedDate,
+                eventsOnDate: eventsOnDate,
+                notesOnDate: notesOnDate,
                     scrollController: scrollController,
-                    onEventTap: (event) {
-                      // Show event details or edit
-                    },
+                onEventTap: (event) {
+                  // Show event details or edit
+                },
                   );
                 },
               ),
@@ -186,25 +186,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
+            onPressed: () async {
           final note = await Navigator.of(context).push<Note>(
-            MaterialPageRoute(
+                MaterialPageRoute(
               builder: (context) => AddNoteScreen(initialDate: _selectedDate),
               fullscreenDialog: true,
             ),
-          );
+                );
 
           if (note != null && mounted) {
             await Provider.of<NoteProvider>(context, listen: false).addNote(note);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Note added successfully')),
-              );
-            }
-          }
-        },
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Note added successfully')),
+                    );
+                  }
+              }
+            },
         child: const Icon(Icons.add),
-      ),
+          ),
     );
   }
 

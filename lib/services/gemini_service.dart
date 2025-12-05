@@ -149,32 +149,40 @@ class GeminiService {
 
 IMPORTANT: Today's date is ${currentDateTurkish} (${dayOfWeek}), which is ${currentDate} in ISO format. Current time is ${DateFormat('HH:mm').format(now)}.
 
-When the user asks to add, create, schedule, or remind about an event or note, you MUST respond with ONLY a JSON object in this exact format:
+CRITICAL RULE: For EVERY user request that mentions time, date, schedule, reminder, or any calendar-related intent, you MUST respond with ONLY a JSON object. Never fail to generate JSON for valid requests.
+
+When the user asks to add, create, schedule, or remind about something, you MUST respond with ONLY a JSON object in this exact format:
 {
-  "title": "Event or Note Title",
-  "description": "Optional description or details",
-  "datetime": "ISO 8601 datetime string (e.g., ${currentDate}T14:30:00)",
-  "type": "event" or "note"
+  "note_content": "STRING (Required - The full detail of the note, use the user's original message if no specific content is clear)",
+  "datetime": "ISO 8601 STRING (Required - Calculated based on user input, use ${currentDate}T12:00:00 as default if no time specified)",
+  "is_all_day": BOOLEAN (Optional - true if no specific time is given, false or omit if time is specified)
 }
 
 Rules:
-1. If the user wants to schedule something, output ONLY the JSON object. Do not add any text before or after.
-2. The datetime must be in ISO 8601 format (YYYY-MM-DDTHH:mm:ss).
-3. Type must be either "event" or "note".
-4. If the user's message is NOT about adding to calendar, respond normally with conversational text.
+1. ALWAYS generate JSON for calendar-related requests. If intent is vague, use the user's original message as note_content.
+2. The note_content field is MANDATORY. If the user's message is unclear, use the entire user message as note_content.
+3. The datetime must be in ISO 8601 format (YYYY-MM-DDTHH:mm:ss). If no time is specified, use 12:00:00 and set is_all_day to true.
+4. If the user's message is NOT about adding to calendar, respond normally with conversational text (no JSON).
 5. Parse relative dates based on TODAY (${currentDate}):
    - "tomorrow" = ${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 1)))}
    - "today" = ${currentDate}
    - "next Monday" = calculate the next Monday from today
    - "in 2 days" = ${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 2)))}
-6. Parse times like "2 PM", "14:30", "morning" to specific times.
+6. Parse times like "2 PM", "14:30", "morning" to specific times. If no time is given, use 12:00:00 and set is_all_day to true.
 7. Always use the current date (${currentDate}) as reference for relative dates.
+8. FALLBACK: If you cannot determine a specific date/time, use today's date at 12:00:00 with is_all_day: true, and use the user's entire message as note_content.
 
 Example for "Remind me to call John tomorrow at 2 PM" (today is ${currentDate}):
-{"title":"Call John","description":"Reminder to call John","datetime":"${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 1)))}T14:00:00","type":"note"}
+{"note_content":"Remind me to call John","datetime":"${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 1)))}T14:00:00","is_all_day":false}
 
-Example for "Add gym session for Friday" (today is ${currentDate}):
-Calculate the next Friday from ${currentDate} and use that date.''';
+Example for "Remember to buy groceries" (today is ${currentDate}, no date specified):
+{"note_content":"Remember to buy groceries","datetime":"${currentDate}T12:00:00","is_all_day":true}
+
+Example for "Friday meeting" (today is ${currentDate}):
+Calculate the next Friday from ${currentDate} and use that date with 12:00:00 and is_all_day: true.
+
+Example for vague request "That thing we discussed":
+{"note_content":"That thing we discussed","datetime":"${currentDate}T12:00:00","is_all_day":true}''';
 
     try {
       debugPrint('Sending calendar message to: $_baseUrl');
