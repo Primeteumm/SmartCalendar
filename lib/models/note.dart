@@ -20,6 +20,15 @@ class Note extends HiveObject {
   @HiveField(5)
   DateTime date;
 
+  @HiveField(6)
+  double? latitude;
+
+  @HiveField(7)
+  double? longitude;
+
+  @HiveField(8)
+  String? locationName;
+
   Note({
     required this.id,
     required this.eventId,
@@ -27,6 +36,9 @@ class Note extends HiveObject {
     required this.createdAt,
     this.title,
     required this.date,
+    this.latitude,
+    this.longitude,
+    this.locationName,
   });
 
   Map<String, dynamic> toJson() {
@@ -37,6 +49,9 @@ class Note extends HiveObject {
       'createdAt': createdAt.toIso8601String(),
       'title': title,
       'date': date.toIso8601String(),
+      'latitude': latitude,
+      'longitude': longitude,
+      'locationName': locationName,
     };
   }
 
@@ -48,6 +63,9 @@ class Note extends HiveObject {
       createdAt: DateTime.parse(json['createdAt']),
       title: json['title'],
       date: DateTime.parse(json['date']),
+      latitude: json['latitude'],
+      longitude: json['longitude'],
+      locationName: json['locationName'],
     );
   }
 }

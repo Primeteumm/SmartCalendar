@@ -8,7 +8,7 @@ class NoteAdapter extends TypeAdapter<Note> {
   @override
   Note read(BinaryReader reader) {
     final hasTitle = reader.readBool();
-    return Note(
+    final note = Note(
       id: reader.readString(),
       eventId: reader.readString(),
       content: reader.readString(),
@@ -16,6 +16,21 @@ class NoteAdapter extends TypeAdapter<Note> {
       title: hasTitle ? reader.readString() : null,
       date: DateTime.parse(reader.readString()),
     );
+    
+    // Read location fields if they exist (for backward compatibility)
+    try {
+      final hasLocation = reader.readBool();
+      if (hasLocation) {
+        note.latitude = reader.readDouble();
+        note.longitude = reader.readDouble();
+        final hasLocationName = reader.readBool();
+        note.locationName = hasLocationName ? reader.readString() : null;
+      }
+    } catch (e) {
+      // Old format, location fields don't exist
+    }
+    
+    return note;
   }
 
   @override
@@ -27,6 +42,16 @@ class NoteAdapter extends TypeAdapter<Note> {
     writer.writeString(obj.createdAt.toIso8601String());
     if (obj.title != null) writer.writeString(obj.title!);
     writer.writeString(obj.date.toIso8601String());
+    
+    // Write location fields
+    final hasLocation = obj.latitude != null && obj.longitude != null;
+    writer.writeBool(hasLocation);
+    if (hasLocation) {
+      writer.writeDouble(obj.latitude!);
+      writer.writeDouble(obj.longitude!);
+      writer.writeBool(obj.locationName != null);
+      if (obj.locationName != null) writer.writeString(obj.locationName!);
+    }
   }
 }
 

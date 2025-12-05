@@ -46,6 +46,11 @@ class NoteProvider with ChangeNotifier {
     return StorageService.getNotesByDate(date);
   }
 
+  List<Note> getNotesWithLocation() {
+    return _notes.where((note) =>
+        note.latitude != null && note.longitude != null).toList();
+  }
+
   /// Get upcoming notes for the next N days as formatted text
   /// Used for AI context injection
   String getUpcomingNotesAsText({int days = 14}) {

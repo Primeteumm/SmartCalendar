@@ -49,16 +49,86 @@ class StorageService {
         // Try to continue with notes box
       }
 
-      try {
-        if (!Hive.isBoxOpen(notesBoxName)) {
-          await Hive.openBox<Note>(notesBoxName);
-          debugPrint('Notes box opened successfully');
-        } else {
-          debugPrint('Notes box already open');
+      // Handle notes box with robust error recovery
+      bool notesBoxOpened = false;
+      int retryCount = 0;
+      const maxRetries = 2;
+      
+      while (!notesBoxOpened && retryCount <= maxRetries) {
+        try {
+          if (Hive.isBoxOpen(notesBoxName)) {
+            // Box is already open, verify it works
+            try {
+              final box = Hive.box<Note>(notesBoxName);
+              // Try a simple operation to verify box is not corrupted
+              box.length; // This will throw if box is corrupted
+              debugPrint('Notes box already open and verified');
+              notesBoxOpened = true;
+            } catch (verifyError) {
+              debugPrint('Notes box is open but corrupted, closing it...');
+              try {
+                final box = Hive.box<Note>(notesBoxName);
+                await box.close();
+              } catch (closeError) {
+                debugPrint('Error closing corrupted box: $closeError');
+              }
+              // Will retry to recreate
+            }
+          } else {
+            // Box is not open, try to open it
+            await Hive.openBox<Note>(notesBoxName);
+            debugPrint('Notes box opened successfully');
+            notesBoxOpened = true;
+          }
+        } catch (e) {
+          retryCount++;
+          debugPrint('Error opening notes box (attempt $retryCount): $e');
+          
+          if (retryCount > maxRetries) {
+            debugPrint('Max retries reached for notes box');
+            break;
+          }
+          
+          // Try to fix the corrupted box
+          try {
+            debugPrint('Attempting to fix corrupted notes box...');
+            
+            // Close box if it's marked as open
+            if (Hive.isBoxOpen(notesBoxName)) {
+              try {
+                final box = Hive.box<Note>(notesBoxName);
+                await box.close();
+                debugPrint('Closed corrupted notes box');
+              } catch (closeError) {
+                debugPrint('Error closing box: $closeError');
+              }
+            }
+            
+            // Wait to ensure file is released
+            await Future.delayed(const Duration(milliseconds: 200));
+            
+            // Delete the corrupted box file
+            try {
+              await Hive.deleteBoxFromDisk(notesBoxName);
+              debugPrint('Corrupted notes box deleted from disk');
+            } catch (deleteError) {
+              debugPrint('Error deleting box file: $deleteError');
+              // Continue anyway, will try to open new box
+            }
+            
+            // Wait before recreating
+            await Future.delayed(const Duration(milliseconds: 200));
+            
+            // Will retry opening in next iteration
+          } catch (recoveryError) {
+            debugPrint('Error during box recovery: $recoveryError');
+          }
         }
-      } catch (e, stackTrace) {
-        debugPrint('Error opening notes box: $e');
-        debugPrint('Stack trace: $stackTrace');
+      }
+      
+      if (!notesBoxOpened) {
+        debugPrint('WARNING: Notes box could not be opened after $maxRetries attempts');
+        debugPrint('App will continue with limited functionality (notes will not be saved)');
       }
       
       // Verify boxes are open
@@ -145,15 +215,23 @@ class StorageService {
 
   static Future<void> saveNote(Note note) async {
     try {
+      if (!Hive.isBoxOpen(notesBoxName)) {
+        debugPrint('WARNING: Notes box is not open, cannot save note');
+        return;
+      }
       await notesBox.put(note.id, note);
     } catch (e) {
       debugPrint('Error saving note: $e');
-      rethrow;
+      // Don't rethrow - allow app to continue
     }
   }
 
   static Note? getNote(String id) {
     try {
+      if (!Hive.isBoxOpen(notesBoxName)) {
+        debugPrint('WARNING: Notes box is not open, cannot get note');
+        return null;
+      }
       return notesBox.get(id);
     } catch (e) {
       debugPrint('Error getting note: $e');
@@ -163,6 +241,10 @@ class StorageService {
 
   static List<Note> getAllNotes() {
     try {
+      if (!Hive.isBoxOpen(notesBoxName)) {
+        debugPrint('WARNING: Notes box is not open, returning empty list');
+        return [];
+      }
       return notesBox.values.toList();
     } catch (e) {
       debugPrint('Error getting all notes: $e');
@@ -172,6 +254,10 @@ class StorageService {
 
   static List<Note> getNotesByEventId(String eventId) {
     try {
+      if (!Hive.isBoxOpen(notesBoxName)) {
+        debugPrint('WARNING: Notes box is not open, returning empty list');
+        return [];
+      }
       return notesBox.values.where((note) => note.eventId == eventId).toList();
     } catch (e) {
       debugPrint('Error getting notes by event id: $e');
@@ -181,6 +267,10 @@ class StorageService {
 
   static List<Note> getNotesByDate(DateTime date) {
     try {
+      if (!Hive.isBoxOpen(notesBoxName)) {
+        debugPrint('WARNING: Notes box is not open, returning empty list');
+        return [];
+      }
       // Normalize dates to compare only year, month, day (ignore time)
       final normalizedDate = DateTime(date.year, date.month, date.day);
       
@@ -207,15 +297,23 @@ class StorageService {
 
   static Future<void> deleteNote(String id) async {
     try {
+      if (!Hive.isBoxOpen(notesBoxName)) {
+        debugPrint('WARNING: Notes box is not open, cannot delete note');
+        return;
+      }
       await notesBox.delete(id);
     } catch (e) {
       debugPrint('Error deleting note: $e');
-      rethrow;
+      // Don't rethrow - allow app to continue
     }
   }
 
   static Future<void> deleteNotesByEventId(String eventId) async {
     try {
+      if (!Hive.isBoxOpen(notesBoxName)) {
+        debugPrint('WARNING: Notes box is not open, cannot delete notes');
+        return;
+      }
       final notes = getNotesByEventId(eventId);
       for (var note in notes) {
         try {
@@ -226,7 +324,7 @@ class StorageService {
       }
     } catch (e) {
       debugPrint('Error deleting notes by event id: $e');
-      rethrow;
+      // Don't rethrow - allow app to continue
     }
   }
 }
