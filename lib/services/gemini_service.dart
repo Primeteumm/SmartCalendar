@@ -576,6 +576,139 @@ Assistant:''';
     }
   }
 
+  /// Generate a personalized daily morning briefing
+  /// 
+  /// [events] - List of upcoming events/notes for today
+  /// [weather] - Current weather information (e.g., "Istanbul: 15°C, Rainy")
+  /// [userName] - User's name for personalization
+  /// Returns AI-generated briefing text
+  static Future<String> generateDailyBriefing(
+    List<Map<String, dynamic>> events,
+    String weather,
+    String userName,
+  ) async {
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      await initialize();
+      if (_apiKey == null || _apiKey!.isEmpty) {
+        debugPrint('ERROR: API Key is still null after initialization');
+        return 'Günlük özet hazırlanamadı. Lütfen API anahtarını kontrol edin.';
+      }
+    }
+
+    // Get current date and time from device
+    final now = DateTime.now();
+    final currentDate = DateFormat('d MMMM yyyy', 'tr_TR').format(now);
+    final dayOfWeek = DateFormat('EEEE', 'tr_TR').format(now);
+    
+    // Format events as text
+    String eventsText = 'No events scheduled for today.';
+    if (events.isNotEmpty) {
+      final buffer = StringBuffer();
+      for (final event in events) {
+        final title = event['title'] ?? event['note_content'] ?? 'Event';
+        final time = event['time'] ?? event['datetime'] ?? 'All Day';
+        buffer.writeln('- $time: $title');
+      }
+      eventsText = buffer.toString();
+    }
+    
+    // System prompt for daily briefing
+    final systemPrompt = '''You are a cheerful, energetic personal assistant for SmartCalendar app.
+
+Current Context:
+- User Name: $userName
+- Date: $currentDate ($dayOfWeek)
+- Weather: $weather
+- Today's Schedule:
+$eventsText
+
+Task: Write a 2-3 sentence morning briefing in Turkish.
+
+Rules:
+1. Personalize the greeting with the user's name ($userName).
+2. Give specific advice based on the weather (e.g., "Yağmur yağacak, şemsiye almayı unutma" for rain, "Güneşli bir gün, dışarıda vakit geçirebilirsin" for clear weather).
+3. Highlight the most important event from today's schedule. If there are no events, mention that they have a free day.
+4. Be friendly, energetic, and encouraging.
+5. Keep it concise (2-3 sentences maximum).
+6. Use Turkish language.
+
+Output: Plain text only, no markdown, no JSON, just the briefing text.
+
+Example format:
+"Merhaba $userName! Bugün $currentDate, $dayOfWeek. Hava durumu: $weather. [Weather advice]. [Schedule highlight]. İyi bir gün geçirmen dileğiyle!"
+
+Now generate the briefing:''';
+
+    try {
+      debugPrint('Generating daily briefing for: $userName');
+      
+      // Prepare the request body
+      final requestBody = {
+        'contents': [
+          {
+            'parts': [
+              {
+                'text': systemPrompt
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.8, // Higher temperature for more creative, friendly responses
+          'topK': 40,
+          'topP': 0.95,
+        }
+      };
+
+      // Make the HTTP POST request with API key in header
+      final response = await http.post(
+        Uri.parse(_baseUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': _apiKey!,
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      debugPrint('Response status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        debugPrint('Briefing response received successfully');
+        
+        // Extract the text from the response
+        if (responseData['candidates'] != null && 
+            responseData['candidates'].isNotEmpty &&
+            responseData['candidates'][0]['content'] != null &&
+            responseData['candidates'][0]['content']['parts'] != null &&
+            responseData['candidates'][0]['content']['parts'].isNotEmpty) {
+          final text = responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+          return text.isNotEmpty ? text.trim() : 'Günlük özet hazırlanamadı.';
+        } else {
+          debugPrint('Unexpected response format: ${response.body}');
+          return 'Günlük özet formatı beklenmedik.';
+        }
+      } else {
+        debugPrint('API Error: ${response.statusCode}');
+        debugPrint('Error body: ${response.body}');
+        
+        // Try to parse error message
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['error'] != null && errorData['error']['message'] != null) {
+            return 'Hata: ${errorData['error']['message']}';
+          }
+        } catch (_) {}
+        
+        return 'Günlük özet alınamadı (${response.statusCode}).';
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error generating daily briefing: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return 'Günlük özet hazırlanırken bir hata oluştu: ${e.toString()}';
+    }
+  }
+
   static bool get isInitialized => _apiKey != null && _apiKey!.isNotEmpty;
 }
 
