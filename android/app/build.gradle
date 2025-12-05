@@ -21,7 +21,13 @@ def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
-
+configurations.all {
+    resolutionStrategy {
+        // Sorun çıkaran 1.11.0 sürümü yerine kararlı olan 1.9.3 sürümünü zorla
+        force 'androidx.activity:activity:1.9.3'
+        force 'androidx.activity:activity-ktx:1.9.3'
+    }
+}
 android {
     namespace "com.smartcalendar.app"
     compileSdk flutter.compileSdkVersion
