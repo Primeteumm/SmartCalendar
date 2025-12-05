@@ -18,8 +18,11 @@ class NoteProvider with ChangeNotifier {
 
   Future<void> addNote(Note note) async {
     await StorageService.saveNote(note);
+    // Reload all notes to ensure consistency
     _notes = StorageService.getAllNotes();
     notifyListeners();
+    debugPrint('Note added: ${note.id}, Total notes: ${_notes.length}');
+    debugPrint('Note date: ${note.date}, Title: ${note.title}');
   }
 
   Future<void> updateNote(Note note) async {

@@ -28,6 +28,7 @@ class _AddNoteDialogState extends State<AddNoteDialog> {
         eventId: widget.event.id,
         content: _contentController.text,
         createdAt: DateTime.now(),
+      date: DateTime.now(),
       );
       Navigator.of(context).pop(note);
     }
