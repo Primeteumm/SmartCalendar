@@ -33,7 +33,8 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
   void _addWelcomeMessage() {
     _messages.add(ChatMessage(
       text: 'Merhaba! Ben SmartCalendar AI asistanınızım. Size nasıl yardımcı olabilirim?\n\n'
-          '💡 İpucu: Bana "Yarın saat 2\'de John\'u ara" veya "Cuma günü spor salonu ekle" gibi komutlar vererek takviminize etkinlik ve notlar ekleyebilirsiniz.',
+          '📅 Takviminize etkinlik eklemek için: "Yarın saat 2\'de John\'u ara" veya "Cuma günü spor salonu ekle"\n\n'
+          '❓ Takviminiz hakkında soru sormak için: "Salı günü ne var?", "Gelecek hafta programım nedir?", "Çalışmak için zamanım var mı?"',
       isUser: false,
       timestamp: DateTime.now(),
     ));
@@ -63,56 +64,93 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
     _scrollToBottom();
 
     try {
-      // Use calendar message method which includes system prompt
-      final result = await GeminiService.sendCalendarMessage(message);
-      final responseText = result['response'] as String;
-
-      // Try to parse calendar action from response
-      // ALWAYS try to parse to ensure we capture every request
-      CalendarAction? calendarAction = CalendarActionParser.parseResponse(responseText);
+      // Check if this is a question about the schedule (Q&A mode)
+      final isScheduleQuestion = _isScheduleQuestion(message);
       
-      // If no JSON was found but response contains calendar intent, create a note anyway
-      if (calendarAction == null && CalendarActionParser.hasCalendarIntent(responseText)) {
-        debugPrint('No JSON found but calendar intent detected, creating fallback note');
-        calendarAction = CalendarActionParser.parseResponse(responseText);
-      }
+      if (isScheduleQuestion) {
+        // Q&A Mode: Get calendar context and ask question
+        debugPrint('Detected schedule question, using Q&A mode');
+        
+        final eventProvider = Provider.of<EventProvider>(context, listen: false);
+        final noteProvider = Provider.of<NoteProvider>(context, listen: false);
+        
+        // Get upcoming events and notes as text
+        final eventsText = eventProvider.getUpcomingEventsAsText(days: 14);
+        final notesText = noteProvider.getUpcomingNotesAsText(days: 14);
+        
+        // Combine both into calendar context
+        final calendarContext = '''EVENTS:
+$eventsText
 
-      String finalResponse = responseText;
-
-      // If calendar action was parsed, save it and update response
-      if (calendarAction != null) {
-        // Pass user message to save function so it can be stored in JSON format
-        final saved = await _saveCalendarAction(calendarAction, userMessage: message);
-        if (saved) {
-          finalResponse = _generateConfirmationMessage(calendarAction);
-        } else {
-          finalResponse = 'Üzgünüm, takvime eklerken bir hata oluştu.';
-        }
+NOTES:
+$notesText''';
+        
+        debugPrint('Calendar context length: ${calendarContext.length} characters');
+        
+        // Ask the question with calendar context
+        final responseText = await GeminiService.askCalendar(message, calendarContext);
+        
+        setState(() {
+          _messages.add(ChatMessage(
+            text: responseText,
+            isUser: false,
+            timestamp: DateTime.now(),
+          ));
+          _isLoading = false;
+        });
       } else {
-        // Even if parsing failed, if the message seems calendar-related, create a note
-        if (CalendarActionParser.hasCalendarIntent(message)) {
-          debugPrint('Creating note from user message directly');
-          final fallbackAction = CalendarAction(
-            noteContent: message,
-            datetime: DateTime.now(),
-            isAllDay: true,
-            type: 'note',
-          );
-          final saved = await _saveCalendarAction(fallbackAction, userMessage: message);
+        // Add Mode: Use existing calendar message method
+        final result = await GeminiService.sendCalendarMessage(message);
+        final responseText = result['response'] as String;
+
+        // Try to parse calendar action from response
+        // ALWAYS try to parse to ensure we capture every request
+        CalendarAction? calendarAction = CalendarActionParser.parseResponse(responseText);
+        
+        // If no JSON was found but response contains calendar intent, create a note anyway
+        if (calendarAction == null && CalendarActionParser.hasCalendarIntent(responseText)) {
+          debugPrint('No JSON found but calendar intent detected, creating fallback note');
+          calendarAction = CalendarActionParser.parseResponse(responseText);
+        }
+
+        String finalResponse = responseText;
+
+        // If calendar action was parsed, save it and update response
+        if (calendarAction != null) {
+          // Pass user message to save function so it can be stored in JSON format
+          final saved = await _saveCalendarAction(calendarAction, userMessage: message);
           if (saved) {
-            finalResponse = '✅ Notunuz takvime eklendi: "$message"';
+            finalResponse = _generateConfirmationMessage(calendarAction);
+          } else {
+            finalResponse = 'Üzgünüm, takvime eklerken bir hata oluştu.';
+          }
+        } else {
+          // Even if parsing failed, if the message seems calendar-related, create a note
+          if (CalendarActionParser.hasCalendarIntent(message)) {
+            debugPrint('Creating note from user message directly');
+            final fallbackAction = CalendarAction(
+              noteContent: message,
+              datetime: DateTime.now(),
+              isAllDay: true,
+              type: 'note',
+            );
+            final saved = await _saveCalendarAction(fallbackAction, userMessage: message);
+            if (saved) {
+              finalResponse = '✅ Notunuz takvime eklendi: "$message"';
+            }
           }
         }
+
+        setState(() {
+          _messages.add(ChatMessage(
+            text: finalResponse,
+            isUser: false,
+            timestamp: DateTime.now(),
+          ));
+          _isLoading = false;
+        });
       }
 
-      setState(() {
-        _messages.add(ChatMessage(
-          text: finalResponse,
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
-        _isLoading = false;
-      });
     } catch (e) {
       setState(() {
         _messages.add(ChatMessage(
@@ -203,6 +241,92 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
       final formattedTime = timeFormat.format(action.datetime);
       return '✅ "$displayText" notunu takviminize ${formattedDate} tarihinde saat ${formattedTime} için ekledim.';
     }
+  }
+
+  /// Check if the message is a question about the schedule (Q&A mode)
+  /// vs a command to add something (Add mode)
+  bool _isScheduleQuestion(String message) {
+    final lowerMessage = message.toLowerCase();
+    
+    // Question keywords
+    final questionKeywords = [
+      'ne var',
+      'nedir',
+      'ne zaman',
+      'hangi',
+      'var mı',
+      'yok mu',
+      'program',
+      'agenda',
+      'schedule',
+      'zamanım var mı',
+      'müsait mi',
+      'boş mu',
+      'dolu mu',
+      'kaç',
+      'nasıl',
+      'nerede',
+      'kim',
+      'hangi gün',
+      'hangi saat',
+      'ne gün',
+      'ne saat',
+      'sor',
+      'söyle',
+      'göster',
+      'listele',
+      'hakkında',
+      'ile ilgili',
+    ];
+    
+    // Add/command keywords (if these are present, it's likely an add command)
+    final addKeywords = [
+      'ekle',
+      'add',
+      'oluştur',
+      'create',
+      'kaydet',
+      'save',
+      'hatırlat',
+      'remind',
+      'planla',
+      'plan',
+      'ayarla',
+      'set',
+      'yap',
+      'do',
+    ];
+    
+    // Check if it contains question keywords
+    final hasQuestionKeyword = questionKeywords.any((keyword) => lowerMessage.contains(keyword));
+    
+    // Check if it contains add keywords
+    final hasAddKeyword = addKeywords.any((keyword) => lowerMessage.contains(keyword));
+    
+    // Check if it ends with question mark
+    final endsWithQuestionMark = message.trim().endsWith('?');
+    
+    // If it has question keywords and doesn't have add keywords, it's likely a question
+    if (hasQuestionKeyword && !hasAddKeyword) {
+      return true;
+    }
+    
+    // If it ends with question mark and doesn't have add keywords, it's likely a question
+    if (endsWithQuestionMark && !hasAddKeyword) {
+      return true;
+    }
+    
+    // If it starts with question words, it's likely a question
+    if (lowerMessage.startsWith('ne ') || 
+        lowerMessage.startsWith('hangi ') ||
+        lowerMessage.startsWith('kaç ') ||
+        lowerMessage.startsWith('nasıl ') ||
+        lowerMessage.startsWith('nerede ') ||
+        lowerMessage.startsWith('kim ')) {
+      return true;
+    }
+    
+    return false;
   }
 
   void _scrollToBottom() {
