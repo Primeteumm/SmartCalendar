@@ -705,7 +705,26 @@ Now generate the briefing:''';
     } catch (e, stackTrace) {
       debugPrint('Error generating daily briefing: $e');
       debugPrint('Stack trace: $stackTrace');
-      return 'An error occurred while generating daily briefing: ${e.toString()}';
+      
+      // Check if it's a network error
+      final errorString = e.toString().toLowerCase();
+      if (errorString.contains('socketexception') || 
+          errorString.contains('failed host lookup') ||
+          errorString.contains('network') ||
+          errorString.contains('connection')) {
+        return 'İnternet bağlantısı yok. Lütfen internet bağlantınızı kontrol edin ve tekrar deneyin.';
+      }
+      
+      // Check if it's an API key error
+      if (errorString.contains('api key') || 
+          errorString.contains('unauthorized') ||
+          errorString.contains('403') ||
+          errorString.contains('401')) {
+        return 'API anahtarı geçersiz veya eksik. Lütfen ayarlardan API anahtarınızı kontrol edin.';
+      }
+      
+      // Generic error message in Turkish
+      return 'Günlük özet oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
     }
   }
 
