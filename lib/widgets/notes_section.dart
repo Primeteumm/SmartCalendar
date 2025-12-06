@@ -26,7 +26,7 @@ class NotesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('d MMMM yyyy', 'tr_TR');
+    final dateFormat = DateFormat('d MMMM yyyy', 'en_US');
     
     return Container(
       decoration: BoxDecoration(
@@ -102,49 +102,47 @@ class NotesSection extends StatelessWidget {
             ),
           ),
           // Scrollable content
-          Flexible(
+          Expanded(
             child: (eventsOnDate.isEmpty && notesOnDate.isEmpty)
-                ? SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: MediaQuery.of(context).size.height * 0.1,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32.0),
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.note_outlined,
-                                size: 64,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No events or notes for this day',
-                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Tap + to add a note',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
-                                    ),
-                              ),
-                            ],
-                          ),
+                ? ListView(
+                    controller: scrollController,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: MediaQuery.of(context).size.height * 0.2,
+                    ),
+                    children: [
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.note_outlined,
+                              size: 64,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No events or notes for this day',
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Tap + to add a note',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                                  ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+                    ],
                   )
                 : ListView.builder(
                     controller: scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    shrinkWrap: true,
                     itemCount: eventsOnDate.length + notesOnDate.length,
                     itemBuilder: (context, index) {
                       // Show events first, then notes
@@ -187,19 +185,19 @@ class NotesSection extends StatelessWidget {
         return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Etkinliği Sil'),
-            content: Text('${event.title} etkinliğini silmek istediğinizden emin misiniz?'),
+            title: const Text('Delete Event'),
+            content: Text('Are you sure you want to delete the event "${event.title}"?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('İptal'),
+                child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.error,
                 ),
-                child: const Text('Sil'),
+                child: const Text('Delete'),
               ),
             ],
           ),
@@ -210,9 +208,9 @@ class NotesSection extends StatelessWidget {
         Provider.of<EventProvider>(context, listen: false).deleteEvent(event.id);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${event.title} silindi'),
+            content: Text('${event.title} deleted'),
             action: SnackBarAction(
-              label: 'Geri Al',
+              label: 'Undo',
               onPressed: () {
                 // Restore event
                 Provider.of<EventProvider>(context, listen: false).addEvent(event);
@@ -336,19 +334,19 @@ class NotesSection extends StatelessWidget {
         return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Notu Sil'),
-            content: Text('${note.title ?? "Not"} notunu silmek istediğinizden emin misiniz?'),
+            title: const Text('Delete Note'),
+            content: Text('Are you sure you want to delete the note "${note.title ?? "Note"}"?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('İptal'),
+                child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: TextButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.error,
                 ),
-                child: const Text('Sil'),
+                child: const Text('Delete'),
               ),
             ],
           ),
@@ -359,9 +357,9 @@ class NotesSection extends StatelessWidget {
         Provider.of<NoteProvider>(context, listen: false).deleteNote(note.id);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${note.title ?? "Not"} silindi'),
+            content: Text('${note.title ?? "Note"} deleted'),
             action: SnackBarAction(
-              label: 'Geri Al',
+              label: 'Undo',
               onPressed: () {
                 // Restore note
                 Provider.of<NoteProvider>(context, listen: false).addNote(note);
@@ -404,7 +402,7 @@ class NotesSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  DateFormat('HH:mm', 'tr_TR').format(note.createdAt),
+                  DateFormat('HH:mm', 'en_US').format(note.createdAt),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),

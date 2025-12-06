@@ -37,10 +37,10 @@ class _MainScreenState extends State<MainScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Konum İzni Gerekli'),
+        title: const Text('Location Permission Required'),
         content: const Text(
-          'Uygulamanın harita özelliklerini kullanabilmesi için konum iznine ihtiyacı vardır. '
-          'Ayarlardan izin verebilirsiniz.',
+          'The app needs location permission to use map features. '
+          'You can grant permission in settings.',
         ),
         actions: [
           TextButton(
@@ -85,7 +85,7 @@ class _MainScreenState extends State<MainScreen> {
           NavigationDestination(
             icon: Icon(Icons.calendar_today_outlined),
             selectedIcon: Icon(Icons.calendar_today),
-            label: 'Takvim',
+            label: 'Calendar',
           ),
         ],
       ),
