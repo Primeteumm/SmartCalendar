@@ -43,7 +43,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Resim seçilirken hata oluştu: $e';
+        _errorMessage = 'Error selecting image: $e';
       });
     }
   }
@@ -63,7 +63,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
       setState(() {
         _isScanning = false;
         if (events.isEmpty) {
-          _errorMessage = 'Görüntüde etkinlik bulunamadı. Lütfen daha net bir görüntü deneyin.';
+          _errorMessage = 'No events found in the image. Please try a clearer image.';
         } else {
           _extractedEvents = events;
         }
@@ -71,7 +71,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
     } catch (e) {
       setState(() {
         _isScanning = false;
-        _errorMessage = 'Görüntü tarama sırasında hata oluştu: $e';
+        _errorMessage = 'Error scanning image: $e';
       });
     }
   }
@@ -111,7 +111,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${_extractedEvents!.length} etkinlik takvime eklendi.'),
+          content: Text('${_extractedEvents!.length} events added to calendar.'),
           backgroundColor: Colors.green,
         ),
       );
@@ -152,13 +152,13 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Takvim Tarama',
+                        'Schedule Scanner',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                       ),
                       Text(
-                        'Görüntüden etkinlikleri çıkar',
+                        'Extract events from image',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
@@ -195,7 +195,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Görüntü Seç',
+                      'Select Image',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
@@ -205,13 +205,13 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
                         ElevatedButton.icon(
                           onPressed: () => _pickImage(ImageSource.camera),
                           icon: const Icon(Icons.camera_alt_rounded),
-                          label: const Text('Kamera'),
+                          label: const Text('Camera'),
                         ),
                         const SizedBox(width: 12),
                         ElevatedButton.icon(
                           onPressed: () => _pickImage(ImageSource.gallery),
                           icon: const Icon(Icons.photo_library_rounded),
-                          label: const Text('Galeri'),
+                          label: const Text('Gallery'),
                         ),
                       ],
                     ),
@@ -243,7 +243,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.scanner_rounded),
-                      label: Text(_isScanning ? 'Taranıyor...' : 'Görüntüyü Tara'),
+                      label: Text(_isScanning ? 'Scanning...' : 'Scan Image'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
@@ -259,7 +259,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
                           _errorMessage = null;
                         });
                       },
-                      child: const Text('Farklı Görüntü Seç'),
+                      child: const Text('Select Different Image'),
                     ),
                 ],
               ),
@@ -314,7 +314,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${_extractedEvents!.length} etkinlik bulundu',
+                          '${_extractedEvents!.length} events found',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -351,7 +351,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          DateFormat('d MMMM yyyy, EEEE', 'tr_TR').format(event.datetime) +
+                                          DateFormat('d MMMM yyyy, EEEE', 'en_US').format(event.datetime) +
                                               (event.isAllDay ? '' : ' ${DateFormat('HH:mm').format(event.datetime)}'),
                                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                                 color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -384,7 +384,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
                           _errorMessage = null;
                         });
                       },
-                      child: const Text('İptal'),
+                      child: const Text('Cancel'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -392,7 +392,7 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
                     flex: 2,
                     child: ElevatedButton(
                       onPressed: _addEventsToCalendar,
-                      child: const Text('Takvime Ekle'),
+                      child: const Text('Add to Calendar'),
                     ),
                   ),
                 ],

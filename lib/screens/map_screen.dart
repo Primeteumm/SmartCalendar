@@ -352,7 +352,7 @@ class _MapScreenState extends State<MapScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Konum başarıyla alındı',
+                              'Location retrieved successfully',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
@@ -411,7 +411,7 @@ class _MapScreenState extends State<MapScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Konum alınamadı',
+                              'Location could not be retrieved',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,

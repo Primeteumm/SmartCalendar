@@ -32,9 +32,9 @@ class _AIAssistantScreenState extends State<AIAssistantScreen> {
 
   void _addWelcomeMessage() {
     _messages.add(ChatMessage(
-      text: 'Merhaba! Ben SmartCalendar AI asistanınızım. Size nasıl yardımcı olabilirim?\n\n'
-          '📅 Takviminize etkinlik eklemek için: "Yarın saat 2\'de John\'u ara" veya "Cuma günü spor salonu ekle"\n\n'
-          '❓ Takviminiz hakkında soru sormak için: "Salı günü ne var?", "Gelecek hafta programım nedir?", "Çalışmak için zamanım var mı?"',
+      text: 'Hello! I am your SmartCalendar AI assistant. How can I help you?\n\n'
+          '📅 To add events to your calendar: "Call John tomorrow at 2 PM" or "Add gym on Friday"\n\n'
+          '❓ To ask questions about your calendar: "What\'s on Tuesday?", "What\'s my schedule next week?", "Do I have time to study?"',
       isUser: false,
       timestamp: DateTime.now(),
     ));
@@ -122,7 +122,7 @@ $notesText''';
           if (saved) {
             finalResponse = _generateConfirmationMessage(calendarAction);
           } else {
-            finalResponse = 'Üzgünüm, takvime eklerken bir hata oluştu.';
+            finalResponse = 'Sorry, an error occurred while adding to calendar.';
           }
         } else {
           // Even if parsing failed, if the message seems calendar-related, create a note
@@ -136,7 +136,7 @@ $notesText''';
             );
             final saved = await _saveCalendarAction(fallbackAction, userMessage: message);
             if (saved) {
-              finalResponse = '✅ Notunuz takvime eklendi: "$message"';
+              finalResponse = '✅ Your note has been added to calendar: "$message"';
             }
           }
         }
@@ -154,7 +154,7 @@ $notesText''';
     } catch (e) {
       setState(() {
         _messages.add(ChatMessage(
-          text: 'Bir hata oluştu: ${e.toString()}',
+          text: 'An error occurred: ${e.toString()}',
           isUser: false,
           timestamp: DateTime.now(),
         ));
@@ -229,17 +229,17 @@ $notesText''';
 
   /// Generate confirmation message for calendar action
   String _generateConfirmationMessage(CalendarAction action) {
-    final dateFormat = DateFormat('d MMMM yyyy', 'tr_TR');
+    final dateFormat = DateFormat('d MMMM yyyy', 'en_US');
     final timeFormat = DateFormat('HH:mm');
     final formattedDate = dateFormat.format(action.datetime);
     
     final displayText = action.displayTitle;
     
     if (action.isAllDay) {
-      return '✅ "$displayText" notunu takviminize ${formattedDate} tarihi için (tüm gün) ekledim.';
+      return '✅ I added "$displayText" to your calendar for ${formattedDate} (all day).';
     } else {
       final formattedTime = timeFormat.format(action.datetime);
-      return '✅ "$displayText" notunu takviminize ${formattedDate} tarihinde saat ${formattedTime} için ekledim.';
+      return '✅ I added "$displayText" to your calendar for ${formattedDate} at ${formattedTime}.';
     }
   }
 
@@ -471,7 +471,7 @@ $notesText''';
                         child: TextField(
                           controller: _messageController,
                           decoration: InputDecoration(
-                            hintText: 'Mesajınızı yazın...',
+                            hintText: 'Type your message...',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(24),
                               borderSide: BorderSide(

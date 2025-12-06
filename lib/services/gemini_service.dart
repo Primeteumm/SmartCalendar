@@ -54,7 +54,7 @@ class GeminiService {
       await initialize();
       if (_apiKey == null || _apiKey!.isEmpty) {
         debugPrint('ERROR: API Key is still null after initialization');
-        return 'AI servisi başlatılamadı. Lütfen API anahtarını kontrol edin.';
+        return 'AI service could not be initialized. Please check your API key.';
       }
     }
 
@@ -98,10 +98,10 @@ class GeminiService {
             responseData['candidates'][0]['content']['parts'] != null &&
             responseData['candidates'][0]['content']['parts'].isNotEmpty) {
           final text = responseData['candidates'][0]['content']['parts'][0]['text'];
-          return text ?? 'Yanıt alınamadı.';
+          return text ?? 'No response received.';
         } else {
           debugPrint('Unexpected response format: ${response.body}');
-          return 'Yanıt formatı beklenmedik.';
+          return 'Unexpected response format.';
         }
       } else {
         debugPrint('API Error: ${response.statusCode}');
@@ -111,16 +111,16 @@ class GeminiService {
         try {
           final errorData = jsonDecode(response.body);
           if (errorData['error'] != null && errorData['error']['message'] != null) {
-            return 'Hata: ${errorData['error']['message']}';
+            return 'Error: ${errorData['error']['message']}';
           }
         } catch (_) {}
         
-        return 'Hata: API yanıtı alınamadı (${response.statusCode}).';
+        return 'Error: Could not get API response (${response.statusCode}).';
       }
     } catch (e, stackTrace) {
       debugPrint('Error sending message to Gemini: $e');
       debugPrint('Stack trace: $stackTrace');
-      return 'Bir hata oluştu: ${e.toString()}';
+      return 'An error occurred: ${e.toString()}';
     }
   }
 
@@ -132,7 +132,7 @@ class GeminiService {
       if (_apiKey == null || _apiKey!.isEmpty) {
         debugPrint('ERROR: API Key is still null after initialization');
         return {
-          'response': 'AI servisi başlatılamadı. Lütfen API anahtarını kontrol edin.',
+          'response': 'AI service could not be initialized. Please check your API key.',
           'hasCalendarAction': false,
         };
       }
@@ -141,13 +141,13 @@ class GeminiService {
     // Get current date and time from device
     final now = DateTime.now();
     final currentDate = DateFormat('yyyy-MM-dd').format(now);
-    final currentDateTurkish = DateFormat('d MMMM yyyy', 'tr_TR').format(now);
-    final dayOfWeek = DateFormat('EEEE', 'tr_TR').format(now);
+    final currentDateEnglish = DateFormat('d MMMM yyyy', 'en_US').format(now);
+    final dayOfWeek = DateFormat('EEEE', 'en_US').format(now);
     
     // System prompt for calendar actions with current date
     final systemPrompt = '''You are a calendar assistant for SmartCalendar app.
 
-IMPORTANT: Today's date is ${currentDateTurkish} (${dayOfWeek}), which is ${currentDate} in ISO format. Current time is ${DateFormat('HH:mm').format(now)}.
+IMPORTANT: Today's date is ${currentDateEnglish} (${dayOfWeek}), which is ${currentDate} in ISO format. Current time is ${DateFormat('HH:mm').format(now)}.
 
 CRITICAL RULE: For EVERY user request that mentions time, date, schedule, reminder, or any calendar-related intent, you MUST respond with ONLY a JSON object. Never fail to generate JSON for valid requests.
 
@@ -240,7 +240,7 @@ Example for vague request "That thing we discussed":
         } else {
           debugPrint('Unexpected response format: ${response.body}');
           return {
-            'response': 'Yanıt formatı beklenmedik.',
+            'response': 'Unexpected response format.',
             'hasCalendarAction': false,
           };
         }
@@ -253,14 +253,14 @@ Example for vague request "That thing we discussed":
           final errorData = jsonDecode(response.body);
           if (errorData['error'] != null && errorData['error']['message'] != null) {
             return {
-              'response': 'Hata: ${errorData['error']['message']}',
+              'response': 'Error: ${errorData['error']['message']}',
               'hasCalendarAction': false,
             };
           }
         } catch (_) {}
         
         return {
-          'response': 'Hata: API yanıtı alınamadı (${response.statusCode}).',
+            'response': 'Error: Could not get API response (${response.statusCode}).',
           'hasCalendarAction': false,
         };
       }
@@ -268,7 +268,7 @@ Example for vague request "That thing we discussed":
       debugPrint('Error sending calendar message to Gemini: $e');
       debugPrint('Stack trace: $stackTrace');
       return {
-        'response': 'Bir hata oluştu: ${e.toString()}',
+        'response': 'An error occurred: ${e.toString()}',
         'hasCalendarAction': false,
       };
     }
@@ -294,13 +294,13 @@ Example for vague request "That thing we discussed":
     // Get current date and time from device
     final now = DateTime.now();
     final currentDate = DateFormat('yyyy-MM-dd').format(now);
-    final currentDateTurkish = DateFormat('d MMMM yyyy', 'tr_TR').format(now);
-    final dayOfWeek = DateFormat('EEEE', 'tr_TR').format(now);
+    final currentDateEnglish = DateFormat('d MMMM yyyy', 'en_US').format(now);
+    final dayOfWeek = DateFormat('EEEE', 'en_US').format(now);
     
     // System prompt for extracting events from image
     final systemPrompt = '''You are a calendar assistant for SmartCalendar app that analyzes images of schedules, flyers, or event documents.
 
-IMPORTANT: Today's date is ${currentDateTurkish} (${dayOfWeek}), which is ${currentDate} in ISO format. Current time is ${DateFormat('HH:mm').format(now)}.
+IMPORTANT: Today's date is ${currentDateEnglish} (${dayOfWeek}), which is ${currentDate} in ISO format. Current time is ${DateFormat('HH:mm').format(now)}.
 
 TASK: Analyze the provided image (which is likely a schedule, exam timetable, class syllabus, or event flyer). Extract EVERY event, appointment, exam, meeting, or important date mentioned in the image.
 
@@ -473,20 +473,20 @@ Now analyze the image and return ONLY the JSON array, no other text.''';
       await initialize();
       if (_apiKey == null || _apiKey!.isEmpty) {
         debugPrint('ERROR: API Key is still null after initialization');
-        return 'AI servisi başlatılamadı. Lütfen API anahtarını kontrol edin.';
+        return 'AI service could not be initialized. Please check your API key.';
       }
     }
 
     // Get current date and time from device
     final now = DateTime.now();
     final currentTime = DateFormat('HH:mm').format(now);
-    final currentDateTurkish = DateFormat('d MMMM yyyy', 'tr_TR').format(now);
-    final dayOfWeek = DateFormat('EEEE', 'tr_TR').format(now);
+    final currentDateEnglish = DateFormat('d MMMM yyyy', 'en_US').format(now);
+    final dayOfWeek = DateFormat('EEEE', 'en_US').format(now);
     
     // System prompt for calendar Q&A
     final systemPrompt = '''You are a helpful personal secretary for SmartCalendar app.
 
-Current Time: ${now.toIso8601String()} (${currentDateTurkish}, ${dayOfWeek}, ${currentTime})
+Current Time: ${now.toIso8601String()} (${currentDateEnglish}, ${dayOfWeek}, ${currentTime})
 
 Here is the user's upcoming schedule for the next 14 days:
 
@@ -497,7 +497,7 @@ CRITICAL RULES:
 2. If the schedule is empty for a specific day or time period, explicitly say so. Do not invent events.
 3. If the user asks about a date/time that is not in the schedule, tell them there are no events scheduled for that period.
 4. Be friendly, concise, and helpful.
-5. Use Turkish language for your responses.
+5. Use English language for your responses.
 6. When mentioning dates, use the format from the schedule (YYYY-MM-DD) or natural language.
 7. If asked about availability, check the schedule and identify free time slots.
 8. Do not make up or assume events that are not in the schedule.
@@ -550,10 +550,10 @@ Assistant:''';
             responseData['candidates'][0]['content']['parts'] != null &&
             responseData['candidates'][0]['content']['parts'].isNotEmpty) {
           final text = responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
-          return text.isNotEmpty ? text : 'Yanıt alınamadı.';
+          return text.isNotEmpty ? text : 'No response received.';
         } else {
           debugPrint('Unexpected response format: ${response.body}');
-          return 'Yanıt formatı beklenmedik.';
+          return 'Unexpected response format.';
         }
       } else {
         debugPrint('API Error: ${response.statusCode}');
@@ -563,16 +563,16 @@ Assistant:''';
         try {
           final errorData = jsonDecode(response.body);
           if (errorData['error'] != null && errorData['error']['message'] != null) {
-            return 'Hata: ${errorData['error']['message']}';
+            return 'Error: ${errorData['error']['message']}';
           }
         } catch (_) {}
         
-        return 'Hata: API yanıtı alınamadı (${response.statusCode}).';
+        return 'Error: Could not get API response (${response.statusCode}).';
       }
     } catch (e, stackTrace) {
       debugPrint('Error asking calendar question: $e');
       debugPrint('Stack trace: $stackTrace');
-      return 'Bir hata oluştu: ${e.toString()}';
+      return 'An error occurred: ${e.toString()}';
     }
   }
 
@@ -591,14 +591,14 @@ Assistant:''';
       await initialize();
       if (_apiKey == null || _apiKey!.isEmpty) {
         debugPrint('ERROR: API Key is still null after initialization');
-        return 'Günlük özet hazırlanamadı. Lütfen API anahtarını kontrol edin.';
+        return 'Daily briefing could not be generated. Please check your API key.';
       }
     }
 
     // Get current date and time from device
     final now = DateTime.now();
-    final currentDate = DateFormat('d MMMM yyyy', 'tr_TR').format(now);
-    final dayOfWeek = DateFormat('EEEE', 'tr_TR').format(now);
+    final currentDate = DateFormat('d MMMM yyyy', 'en_US').format(now);
+    final dayOfWeek = DateFormat('EEEE', 'en_US').format(now);
     
     // Format events as text
     String eventsText = 'No events scheduled for today.';
@@ -622,20 +622,20 @@ Current Context:
 - Today's Schedule:
 $eventsText
 
-Task: Write a 2-3 sentence morning briefing in Turkish.
+Task: Write a 2-3 sentence morning briefing in English.
 
 Rules:
 1. Personalize the greeting with the user's name ($userName).
-2. Give specific advice based on the weather (e.g., "Yağmur yağacak, şemsiye almayı unutma" for rain, "Güneşli bir gün, dışarıda vakit geçirebilirsin" for clear weather).
+2. Give specific advice based on the weather (e.g., "It will rain, don't forget your umbrella" for rain, "It's a sunny day, you can spend time outdoors" for clear weather).
 3. Highlight the most important event from today's schedule. If there are no events, mention that they have a free day.
 4. Be friendly, energetic, and encouraging.
 5. Keep it concise (2-3 sentences maximum).
-6. Use Turkish language.
+6. Use English language.
 
 Output: Plain text only, no markdown, no JSON, just the briefing text.
 
 Example format:
-"Merhaba $userName! Bugün $currentDate, $dayOfWeek. Hava durumu: $weather. [Weather advice]. [Schedule highlight]. İyi bir gün geçirmen dileğiyle!"
+"Hello $userName! Today is $currentDate, $dayOfWeek. Weather: $weather. [Weather advice]. [Schedule highlight]. Have a great day!"
 
 Now generate the briefing:''';
 
@@ -683,10 +683,10 @@ Now generate the briefing:''';
             responseData['candidates'][0]['content']['parts'] != null &&
             responseData['candidates'][0]['content']['parts'].isNotEmpty) {
           final text = responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
-          return text.isNotEmpty ? text.trim() : 'Günlük özet hazırlanamadı.';
+          return text.isNotEmpty ? text.trim() : 'Daily briefing could not be generated.';
         } else {
           debugPrint('Unexpected response format: ${response.body}');
-          return 'Günlük özet formatı beklenmedik.';
+          return 'Unexpected daily briefing format.';
         }
       } else {
         debugPrint('API Error: ${response.statusCode}');
@@ -696,16 +696,16 @@ Now generate the briefing:''';
         try {
           final errorData = jsonDecode(response.body);
           if (errorData['error'] != null && errorData['error']['message'] != null) {
-            return 'Hata: ${errorData['error']['message']}';
+            return 'Error: ${errorData['error']['message']}';
           }
         } catch (_) {}
         
-        return 'Günlük özet alınamadı (${response.statusCode}).';
+        return 'Daily briefing could not be retrieved (${response.statusCode}).';
       }
     } catch (e, stackTrace) {
       debugPrint('Error generating daily briefing: $e');
       debugPrint('Stack trace: $stackTrace');
-      return 'Günlük özet hazırlanırken bir hata oluştu: ${e.toString()}';
+      return 'An error occurred while generating daily briefing: ${e.toString()}';
     }
   }
 

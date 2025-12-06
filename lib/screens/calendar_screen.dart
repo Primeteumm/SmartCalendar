@@ -58,16 +58,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _toggleSheetPosition() {
-    final currentSize = _draggableScrollableController.size;
+    // Check if controller is attached before accessing size
+    if (!_draggableScrollableController.isAttached) {
+      return;
+    }
     
-    // Toggle between middle (0.3) and max (0.9)
-    double nextSize = currentSize < 0.6 ? 0.9 : 0.3;
-    
-    _draggableScrollableController.animateTo(
-      nextSize,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    try {
+      final currentSize = _draggableScrollableController.size;
+      
+      // Toggle between middle (0.3) and max (0.9)
+      double nextSize = currentSize < 0.6 ? 0.9 : 0.3;
+      
+      _draggableScrollableController.animateTo(
+        nextSize,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    } catch (e) {
+      // If there's an error accessing the controller, just ignore it
+      debugPrint('Error toggling sheet position: $e');
+    }
   }
 
   Future<void> _loadAiButtonPosition() async {
@@ -185,8 +195,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   textCapitalization: TextCapitalization.words,
                   style: Theme.of(context).textTheme.bodyLarge,
                   decoration: InputDecoration(
-                    labelText: 'Adınız nedir?',
-                    hintText: 'Adınızı girin',
+                    labelText: 'What is your name?',
+                    hintText: 'Enter your name',
                     prefixIcon: Icon(
                       Icons.person_outline_rounded,
                       color: Theme.of(context).colorScheme.primary,
@@ -241,7 +251,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         ),
                         child: Text(
-                          'İptal',
+                          'Cancel',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onPrimaryContainer,
                           ),
@@ -265,7 +275,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                           elevation: 4,
                         ),
-                        child: const Text('Kaydet'),
+                        child: const Text('Save'),
                       ),
                     ),
                   ],
@@ -406,7 +416,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.document_scanner_rounded),
-            tooltip: 'Takvimi Tara',
+            tooltip: 'Scan Schedule',
             onPressed: () {
               showDialog(
                 context: context,
