@@ -155,9 +155,19 @@ class _MapScreenState extends State<MapScreen> {
                   maxZoom: 18.0,
                 ),
                 children: [
-                  // MapTiler tile layer
+                  // MapTiler tile layer with OpenStreetMap fallback
                   TileLayer(
-                    urlTemplate: 'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${dotenv.isInitialized ? (dotenv.env['MAPTILER_API_KEY'] ?? '') : ''}',
+                    urlTemplate: () {
+                      final apiKey = dotenv.isInitialized 
+                          ? (dotenv.env['MAPTILER_API_KEY'] ?? '') 
+                          : '';
+                      if (apiKey.isEmpty) {
+                        // Fallback to OpenStreetMap if no API key
+                        debugPrint('MAPTILER_API_KEY not found, using OpenStreetMap');
+                        return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+                      }
+                      return 'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=$apiKey';
+                    }(),
                     userAgentPackageName: 'com.smartcalendar.app',
                   ),
                   // Markers layer

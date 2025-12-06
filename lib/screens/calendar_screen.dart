@@ -367,8 +367,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
           _isLoadingBriefing = false;
         });
         
-        // Show full-screen dialog
-        DailyBriefingDialog.show(context, briefing);
+        // Check if briefing contains an error message
+        if (briefing.contains('İnternet bağlantısı') || 
+            briefing.contains('API anahtarı') || 
+            briefing.contains('hata oluştu')) {
+          // Show error dialog instead of briefing
+          showDialog(
+            context: context,
+            barrierDismissible: true,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Günlük Özet Hatası'),
+                ],
+              ),
+              content: Text(briefing),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Tamam'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // Show full-screen dialog with briefing
+          DailyBriefingDialog.show(context, briefing);
+        }
       }
     } catch (e) {
       debugPrint('Error loading daily briefing: $e');
@@ -376,6 +403,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
         setState(() {
           _isLoadingBriefing = false;
         });
+        
+        // Show error dialog
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Hata'),
+              ],
+            ),
+            content: const Text('Günlük özet yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Tamam'),
+              ),
+            ],
+          ),
+        );
       }
     }
   }
