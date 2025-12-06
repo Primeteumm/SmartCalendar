@@ -128,8 +128,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _buildSectionCard(
                           context,
                           icon: Icons.location_on_rounded,
-                          title: 'Konum',
-                          subtitle: 'Konum izinleri ve doğruluk',
+                          title: 'Location',
+                          subtitle: 'Location permissions and accuracy',
                           isExpanded: _isLocationExpanded,
                           onExpansionChanged: (expanded) {
                             setState(() {
@@ -342,8 +342,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildModernToggle(
               context,
               icon: Icons.location_on_rounded,
-              title: 'Konum Servisleri',
-              subtitle: 'Etkinlikleriniz için konum bilgisi kullan',
+              title: 'Location Services',
+              subtitle: 'Use location information for your events',
               value: settingsProvider.locationEnabled,
               onChanged: (value) async {
                 final success = await settingsProvider.toggleLocation();
@@ -352,9 +352,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('Konum izni verilmedi. Lütfen ayarlardan izin verin.'),
+                        content: const Text('Location permission denied. Please grant permission in settings.'),
                         action: SnackBarAction(
-                          label: 'Tamam',
+                          label: 'OK',
                           onPressed: () {},
                         ),
                       ),
@@ -380,7 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Konum servisleri, etkinliklerinize konum eklemenize ve haritada görüntülemenize olanak sağlar.',
+                      'Location services allow you to add locations to your events and view them on the map.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
@@ -404,8 +404,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildModernToggle(
               context,
               icon: Icons.notifications_rounded,
-              title: 'Bildirimler',
-              subtitle: 'Etkinlik hatırlatmaları için bildirim al',
+              title: 'Notifications',
+              subtitle: 'Receive notifications for event reminders',
               value: settingsProvider.notificationsEnabled,
               onChanged: (value) async {
                 final success = await settingsProvider.toggleNotifications();
@@ -414,9 +414,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('Bildirim izni verilmedi. Lütfen ayarlardan izin verin.'),
+                        content: const Text('Notification permission denied. Please grant permission in settings.'),
                         action: SnackBarAction(
-                          label: 'Tamam',
+                          label: 'OK',
                           onPressed: () {},
                         ),
                       ),
@@ -442,7 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Bildirimler açıkken, yaklaşan etkinlikleriniz için hatırlatma bildirimleri alırsınız.',
+                      'When notifications are enabled, you will receive reminder notifications for your upcoming events.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
@@ -488,12 +488,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Versiyon: 1.0.0',
+                'Version: 1.0.0',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                'Akıllı takvim uygulamanız. Etkinliklerinizi yönetin, notlar alın ve AI asistanı ile planlarınızı organize edin.',
+                'Your smart calendar app. Manage your events, take notes, and organize your plans with AI assistant.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),

@@ -127,7 +127,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                     ),
                     child: Text(
                       _selectedDate != null
-                          ? DateFormat('dd MMMM yyyy', 'tr_TR')
+                          ? DateFormat('dd MMMM yyyy', 'en_US')
                               .format(_selectedDate!)
                           : 'Select date',
                     ),

@@ -82,7 +82,7 @@ class DailyBriefingDialog extends StatelessWidget {
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
-                          'Günlük Özet',
+                          'Daily Briefing',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,

@@ -37,6 +37,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // Daily briefing state
   bool _isLoadingBriefing = false;
 
+  // DraggableScrollableSheet controller
+  final DraggableScrollableController _draggableScrollableController =
+      DraggableScrollableController();
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +49,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUserNameAndLoadBriefing();
     });
+  }
+
+  @override
+  void dispose() {
+    _draggableScrollableController.dispose();
+    super.dispose();
+  }
+
+  void _toggleSheetPosition() {
+    // Check if controller is attached before accessing size
+    if (!_draggableScrollableController.isAttached) {
+      return;
+    }
+    
+    try {
+      final currentSize = _draggableScrollableController.size;
+      
+      // Toggle between middle (0.3) and max (0.9)
+      double nextSize = currentSize < 0.6 ? 0.9 : 0.3;
+      
+      _draggableScrollableController.animateTo(
+        nextSize,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    } catch (e) {
+      // If there's an error accessing the controller, just ignore it
+      debugPrint('Error toggling sheet position: $e');
+    }
   }
 
   Future<void> _loadAiButtonPosition() async {
@@ -162,8 +195,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   textCapitalization: TextCapitalization.words,
                   style: Theme.of(context).textTheme.bodyLarge,
                   decoration: InputDecoration(
-                    labelText: 'Adınız nedir?',
-                    hintText: 'Adınızı girin',
+                    labelText: 'What is your name?',
+                    hintText: 'Enter your name',
                     prefixIcon: Icon(
                       Icons.person_outline_rounded,
                       color: Theme.of(context).colorScheme.primary,
@@ -218,7 +251,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                         ),
                         child: Text(
-                          'İptal',
+                          'Cancel',
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onPrimaryContainer,
                           ),
@@ -242,7 +275,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           ),
                           elevation: 4,
                         ),
-                        child: const Text('Kaydet'),
+                        child: const Text('Save'),
                       ),
                     ),
                   ],
@@ -334,8 +367,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
           _isLoadingBriefing = false;
         });
         
-        // Show full-screen dialog
-        DailyBriefingDialog.show(context, briefing);
+        // Check if briefing contains an error message
+        if (briefing.contains('İnternet bağlantısı') || 
+            briefing.contains('API anahtarı') || 
+            briefing.contains('hata oluştu')) {
+          // Show error dialog instead of briefing
+          showDialog(
+            context: context,
+            barrierDismissible: true,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.error_outline, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Text('Günlük Özet Hatası'),
+                ],
+              ),
+              content: Text(briefing),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Tamam'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // Show full-screen dialog with briefing
+          DailyBriefingDialog.show(context, briefing);
+        }
       }
     } catch (e) {
       debugPrint('Error loading daily briefing: $e');
@@ -343,6 +403,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
         setState(() {
           _isLoadingBriefing = false;
         });
+        
+        // Show error dialog
+        showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Hata'),
+              ],
+            ),
+            content: const Text('Günlük özet yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Tamam'),
+              ),
+            ],
+          ),
+        );
       }
     }
   }
@@ -383,7 +465,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.document_scanner_rounded),
-            tooltip: 'Takvimi Tara',
+            tooltip: 'Scan Schedule',
             onPressed: () {
               showDialog(
                 context: context,
@@ -434,11 +516,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
               // Draggable Notes section
               DraggableScrollableSheet(
+                controller: _draggableScrollableController,
                 initialChildSize: 0.3,
-                minChildSize: 0.1,
+                minChildSize: 0.3,
                 maxChildSize: 0.9,
                 snap: true,
-                snapSizes: const [0.1, 0.3, 0.9],
+                snapSizes: const [0.3, 0.9],
                 builder: (context, scrollController) {
                   return NotesSection(
                 selectedDate: _selectedDate,
@@ -448,6 +531,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 onEventTap: (event) {
                   // Show event details or edit
                 },
+                onDragHandleTap: _toggleSheetPosition,
                   );
                 },
               ),

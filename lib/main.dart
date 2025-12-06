@@ -39,8 +39,8 @@ void main() async {
     }
   }
   
-  // Initialize date formatting for Turkish locale
-  await initializeDateFormatting('tr_TR', null);
+  // Initialize date formatting for English locale
+  await initializeDateFormatting('en_US', null);
   
   // Initialize Hive storage
   try {
