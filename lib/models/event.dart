@@ -26,6 +26,12 @@ class Event extends HiveObject {
   @HiveField(7)
   String? locationName;
 
+  @HiveField(8)
+  String category; // Category: School, Work, Social, Health, General
+
+  @HiveField(9)
+  String colorHex; // Hex color code (e.g., "#FF0000")
+
   Event({
     required this.id,
     required this.title,
@@ -35,6 +41,8 @@ class Event extends HiveObject {
     this.latitude,
     this.longitude,
     this.locationName,
+    this.category = 'General',
+    this.colorHex = '#808080', // Default grey
   });
 
   Map<String, dynamic> toJson() {
@@ -47,6 +55,8 @@ class Event extends HiveObject {
       'latitude': latitude,
       'longitude': longitude,
       'locationName': locationName,
+      'category': category,
+      'colorHex': colorHex,
     };
   }
 
@@ -60,6 +70,8 @@ class Event extends HiveObject {
       latitude: json['latitude'],
       longitude: json['longitude'],
       locationName: json['locationName'],
+      category: json['category'] ?? 'General',
+      colorHex: json['colorHex'] ?? '#808080',
     );
   }
 }

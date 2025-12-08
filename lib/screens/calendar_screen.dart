@@ -13,8 +13,10 @@ import '../widgets/scan_schedule_dialog.dart';
 import '../widgets/daily_briefing_dialog.dart';
 import '../services/open_meteo_service.dart';
 import '../services/gemini_service.dart';
+import '../services/location_manager.dart';
 import 'settings_screen.dart';
 import 'ai_assistant_screen.dart';
+import 'insights_screen.dart';
 import 'dart:convert';
 
 class CalendarScreen extends StatefulWidget {
@@ -352,14 +354,42 @@ class _CalendarScreenState extends State<CalendarScreen> {
         return aTime.compareTo(bTime);
       });
 
-      // Fetch weather
-      final weather = await OpenMeteoService.getCurrentWeather();
+      // Step 1: Get current location (position + city name)
+      debugPrint('Getting current location...');
+      final locationData = await LocationManager.getCurrentLocation();
+      
+      String weather;
+      String? cityName;
+      
+      if (locationData != null) {
+        debugPrint('Location obtained: ${locationData.cityName} (${locationData.latitude}, ${locationData.longitude})');
+        cityName = locationData.cityName;
+        
+        // Step 2: Fetch weather for the detected location
+        debugPrint('Fetching weather for location...');
+        weather = await OpenMeteoService.getCurrentWeather(
+          locationData.latitude,
+          locationData.longitude,
+          cityName: locationData.cityName,
+        );
+      } else {
+        debugPrint('Failed to get location, using fallback (Istanbul)');
+        // Fallback to Istanbul if location is unavailable
+        cityName = 'Istanbul';
+        weather = await OpenMeteoService.getCurrentWeather(
+          41.0082, // Istanbul latitude
+          28.9784, // Istanbul longitude
+          cityName: 'Istanbul',
+        );
+      }
 
-      // Generate briefing
+      // Step 3: Generate briefing with location context
+      debugPrint('Generating briefing with weather: $weather');
       final briefing = await GeminiService.generateDailyBriefing(
         todaySchedule,
         weather,
         userName,
+        cityName: cityName,
       );
 
       if (mounted) {
@@ -460,6 +490,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.insights_rounded),
+          tooltip: 'Intelligence Reports',
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const InsightsScreen(),
+              ),
+            );
+          },
+        ),
         title: const Text('SmartCalendar'),
         centerTitle: true,
         actions: [

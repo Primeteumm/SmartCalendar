@@ -155,8 +155,24 @@ When the user asks to add, create, schedule, or remind about something, you MUST
 {
   "note_content": "STRING (Required - The full detail of the note, use the user's original message if no specific content is clear)",
   "datetime": "ISO 8601 STRING (Required - Calculated based on user input, use ${currentDate}T12:00:00 as default if no time specified)",
-  "is_all_day": BOOLEAN (Optional - true if no specific time is given, false or omit if time is specified)
+  "is_all_day": BOOLEAN (Optional - true if no specific time is given, false or omit if time is specified),
+  "category": "STRING (Required - Must be one of: School, Work, Social, Health, General)",
+  "color_hex": "STRING (Required - Hex color code matching the category: School=#FF0000, Work=#0000FF, Social=#FFA500, Health=#00FF00, General=#808080)"
 }
+
+CATEGORY ASSIGNMENT RULES:
+- "School": Exams, classes, homework, study sessions, academic events → Color: #FF0000 (Red)
+- "Work": Meetings, deadlines, work tasks, professional events → Color: #0000FF (Blue)
+- "Social": Parties, hangouts, dates, social gatherings, friends → Color: #FFA500 (Orange)
+- "Health": Gym, doctor appointments, workouts, medical, fitness → Color: #00FF00 (Green)
+- "General": Everything else, vague requests, unclear intent → Color: #808080 (Grey)
+
+Analyze the event content carefully and assign the most appropriate category. Examples:
+- "Math Exam" → category: "School", color_hex: "#FF0000"
+- "Gym session" → category: "Health", color_hex: "#00FF00"
+- "Team meeting" → category: "Work", color_hex: "#0000FF"
+- "Birthday party" → category: "Social", color_hex: "#FFA500"
+- "Remind me to..." (vague) → category: "General", color_hex: "#808080"
 
 Rules:
 1. ALWAYS generate JSON for calendar-related requests. If intent is vague, use the user's original message as note_content.
@@ -173,16 +189,22 @@ Rules:
 8. FALLBACK: If you cannot determine a specific date/time, use today's date at 12:00:00 with is_all_day: true, and use the user's entire message as note_content.
 
 Example for "Remind me to call John tomorrow at 2 PM" (today is ${currentDate}):
-{"note_content":"Remind me to call John","datetime":"${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 1)))}T14:00:00","is_all_day":false}
+{"note_content":"Remind me to call John","datetime":"${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 1)))}T14:00:00","is_all_day":false,"category":"General","color_hex":"#808080"}
 
-Example for "Remember to buy groceries" (today is ${currentDate}, no date specified):
-{"note_content":"Remember to buy groceries","datetime":"${currentDate}T12:00:00","is_all_day":true}
+Example for "Math Exam next Monday" (today is ${currentDate}):
+{"note_content":"Math Exam","datetime":"[calculate next Monday]T09:00:00","is_all_day":false,"category":"School","color_hex":"#FF0000"}
 
-Example for "Friday meeting" (today is ${currentDate}):
-Calculate the next Friday from ${currentDate} and use that date with 12:00:00 and is_all_day: true.
+Example for "Gym session tomorrow" (today is ${currentDate}):
+{"note_content":"Gym session","datetime":"${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 1)))}T18:00:00","is_all_day":false,"category":"Health","color_hex":"#00FF00"}
+
+Example for "Team meeting Friday" (today is ${currentDate}):
+{"note_content":"Team meeting","datetime":"[calculate next Friday]T14:00:00","is_all_day":false,"category":"Work","color_hex":"#0000FF"}
+
+Example for "Birthday party Saturday" (today is ${currentDate}):
+{"note_content":"Birthday party","datetime":"[calculate next Saturday]T19:00:00","is_all_day":false,"category":"Social","color_hex":"#FFA500"}
 
 Example for vague request "That thing we discussed":
-{"note_content":"That thing we discussed","datetime":"${currentDate}T12:00:00","is_all_day":true}''';
+{"note_content":"That thing we discussed","datetime":"${currentDate}T12:00:00","is_all_day":true,"category":"General","color_hex":"#808080"}''';
 
     try {
       debugPrint('Sending calendar message to: $_baseUrl');
@@ -579,14 +601,16 @@ Assistant:''';
   /// Generate a personalized daily morning briefing
   /// 
   /// [events] - List of upcoming events/notes for today
-  /// [weather] - Current weather information (e.g., "Istanbul: 15°C, Rainy")
+  /// [weather] - Current weather information (e.g., "Ankara: 15°C, Rainy")
   /// [userName] - User's name for personalization
+  /// [cityName] - Optional city name for location-based personalization
   /// Returns AI-generated briefing text
   static Future<String> generateDailyBriefing(
     List<Map<String, dynamic>> events,
     String weather,
-    String userName,
-  ) async {
+    String userName, {
+    String? cityName,
+  }) async {
     if (_apiKey == null || _apiKey!.isEmpty) {
       await initialize();
       if (_apiKey == null || _apiKey!.isEmpty) {
@@ -612,20 +636,25 @@ Assistant:''';
       eventsText = buffer.toString();
     }
     
+    // Build location context
+    final locationContext = cityName != null && cityName.isNotEmpty
+        ? 'User Location: $cityName\n- Weather: $weather'
+        : '- Weather: $weather';
+
     // System prompt for daily briefing
     final systemPrompt = '''You are a cheerful, energetic personal assistant for SmartCalendar app.
 
 Current Context:
 - User Name: $userName
 - Date: $currentDate ($dayOfWeek)
-- Weather: $weather
+$locationContext
 - Today's Schedule:
 $eventsText
 
 Task: Write a 2-3 sentence morning briefing in English.
 
 Rules:
-1. Personalize the greeting with the user's name ($userName).
+1. Personalize the greeting with the user's name ($userName).${cityName != null && cityName.isNotEmpty ? ' If relevant, you can mention the city ($cityName) in a natural way.' : ''}
 2. Give specific advice based on the weather (e.g., "It will rain, don't forget your umbrella" for rain, "It's a sunny day, you can spend time outdoors" for clear weather).
 3. Highlight the most important event from today's schedule. If there are no events, mention that they have a free day.
 4. Be friendly, energetic, and encouraging.
@@ -635,7 +664,7 @@ Rules:
 Output: Plain text only, no markdown, no JSON, just the briefing text.
 
 Example format:
-"Hello $userName! Today is $currentDate, $dayOfWeek. Weather: $weather. [Weather advice]. [Schedule highlight]. Have a great day!"
+"Hello $userName!${cityName != null && cityName.isNotEmpty ? ' Good morning from $cityName!' : ''} Today is $currentDate, $dayOfWeek. Weather: $weather. [Weather advice]. [Schedule highlight]. Have a great day!"
 
 Now generate the briefing:''';
 
@@ -725,6 +754,104 @@ Now generate the briefing:''';
       
       // Generic error message in Turkish
       return 'Günlük özet oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
+    }
+  }
+
+  /// Generate AI-driven insights for analytics report
+  /// 
+  /// [categoryData] - Map of category -> hours spent
+  /// [period] - Time period (e.g., "Last 7 Days" or "Last 30 Days")
+  /// Returns AI-generated insights as formatted text
+  static Future<String> generateReportInsight(
+    Map<String, double> categoryData,
+    String period,
+  ) async {
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      await initialize();
+      if (_apiKey == null || _apiKey!.isEmpty) {
+        debugPrint('ERROR: API Key is still null after initialization');
+        return 'AI insights could not be generated. Please check your API key.';
+      }
+    }
+
+    // Format category data for prompt
+    final dataText = categoryData.entries
+        .map((e) => '${e.key}: ${e.value.toStringAsFixed(1)} hours')
+        .join(', ');
+    
+    final totalHours = categoryData.values.fold(0.0, (sum, hours) => sum + hours);
+
+    // System prompt for life coach insights
+    final systemPrompt = '''You are a strict but motivating life coach analyzing time distribution data.
+
+Time Distribution Data:
+$dataText
+Total Hours: ${totalHours.toStringAsFixed(1)} hours
+Period: $period
+
+Task: Generate exactly 3 bullet points of feedback:
+1. PRAISE: What the user did well (highlight the category with most hours or good balance)
+2. CRITIQUE: What needs improvement (mention missing or low categories, especially Health/Sports)
+3. INSIGHT: An interesting observation (e.g., most active day, category balance, trends)
+
+Rules:
+- Be direct and honest but encouraging
+- Use specific numbers from the data
+- Keep each bullet point to 1-2 sentences
+- Use English language
+- Format as plain text with bullet points (use • or -)
+
+Output format:
+• [Praise point]
+• [Critique point]
+• [Insight point]
+
+Now generate the insights:''';
+
+    try {
+      debugPrint('Generating report insights for period: $period');
+      debugPrint('Category data: $categoryData');
+
+      final requestBody = {
+        'contents': [
+          {
+            'parts': [
+              {'text': systemPrompt}
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7, // Balanced for analytical but friendly tone
+          'topK': 40,
+          'topP': 0.95,
+        }
+      };
+
+      final response = await http.post(
+        Uri.parse(_baseUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': _apiKey!,
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      debugPrint('Insights response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final text = responseData['candidates']?[0]['content']?['parts']?[0]?['text'] ?? 
+                     'Insights could not be generated.';
+        debugPrint('Insights generated: $text');
+        return text.trim();
+      } else {
+        debugPrint('API Error generating insights: ${response.statusCode} - ${response.body}');
+        return 'Insights could not be generated. An error occurred.';
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error generating report insights: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return 'Insights could not be generated. An error occurred: ${e.toString()}';
     }
   }
 

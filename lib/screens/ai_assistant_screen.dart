@@ -176,6 +176,8 @@ $notesText''';
           date: action.datetime,
           description: action.description ?? action.noteContent, // Use noteContent as fallback
           time: DateFormat('HH:mm').format(action.datetime),
+          category: action.category,
+          colorHex: action.colorHex,
         );
 
         final eventProvider = Provider.of<EventProvider>(context, listen: false);
@@ -189,6 +191,8 @@ $notesText''';
           'note_content': action.noteContent,
           'datetime': action.datetime.toIso8601String(),
           'is_all_day': action.isAllDay,
+          'category': action.category,
+          'color_hex': action.colorHex,
           // Legacy fields for backward compatibility
           if (action.title != null) 'title': action.title,
           if (action.description != null) 'description': action.description,
@@ -204,6 +208,8 @@ $notesText''';
           createdAt: DateTime.now(),
           title: action.displayTitle.isNotEmpty ? action.displayTitle : action.noteContent.split('\n').first, // Use display title for UI, fallback to first line of content
           date: action.datetime,
+          category: action.category,
+          colorHex: action.colorHex,
         );
 
         final noteProvider = Provider.of<NoteProvider>(context, listen: false);

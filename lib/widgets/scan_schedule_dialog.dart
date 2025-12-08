@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:image_picker/image_picker.dart';
@@ -85,15 +84,12 @@ class _ScanScheduleDialogState extends State<ScanScheduleDialog> {
     for (final action in _extractedEvents!) {
       try {
         // Create Note from CalendarAction
+        // Store only the note_content value, not the JSON string
         final note = Note(
           id: DateTime.now().millisecondsSinceEpoch.toString() + 
               action.datetime.millisecondsSinceEpoch.toString(),
           eventId: '', // Empty for standalone notes
-          content: jsonEncode({
-            'note_content': action.noteContent,
-            'datetime': action.datetime.toIso8601String(),
-            'is_all_day': action.isAllDay,
-          }),
+          content: action.noteContent, // Store only the text content, not JSON
           createdAt: now,
           title: action.noteContent.split('\n').first.split('.').first.trim(),
           date: action.datetime,
