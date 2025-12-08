@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -395,7 +396,7 @@ class NotesSection extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  note.content,
+                  _extractNoteContent(note.content),
                   style: Theme.of(context).textTheme.bodyMedium,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
@@ -413,6 +414,24 @@ class NotesSection extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Extract note content from JSON or return plain text
+  /// Handles both JSON format (with note_content field) and plain text
+  String _extractNoteContent(String content) {
+    try {
+      // Try to parse as JSON
+      final json = jsonDecode(content);
+      if (json is Map && json.containsKey('note_content')) {
+        // Extract note_content from JSON
+        return json['note_content'] as String;
+      }
+      // If JSON but no note_content, return original
+      return content;
+    } catch (_) {
+      // If not JSON, return content as-is (plain text)
+      return content;
+    }
   }
 }
 

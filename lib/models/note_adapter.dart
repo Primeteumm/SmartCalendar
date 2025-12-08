@@ -30,6 +30,22 @@ class NoteAdapter extends TypeAdapter<Note> {
       // Old format, location fields don't exist
     }
     
+    // Read category and colorHex if they exist (for backward compatibility)
+    try {
+      final hasCategory = reader.readBool();
+      if (hasCategory) {
+        note.category = reader.readString();
+        note.colorHex = reader.readString();
+      } else {
+        note.category = 'General';
+        note.colorHex = '#808080';
+      }
+    } catch (e) {
+      // Old format, use defaults
+      note.category = 'General';
+      note.colorHex = '#808080';
+    }
+    
     return note;
   }
 
@@ -52,6 +68,11 @@ class NoteAdapter extends TypeAdapter<Note> {
       writer.writeBool(obj.locationName != null);
       if (obj.locationName != null) writer.writeString(obj.locationName!);
     }
+    
+    // Write category and colorHex
+    writer.writeBool(true); // Always has category now
+    writer.writeString(obj.category);
+    writer.writeString(obj.colorHex);
   }
 }
 

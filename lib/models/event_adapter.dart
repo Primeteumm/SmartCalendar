@@ -13,7 +13,7 @@ class EventAdapter extends TypeAdapter<Event> {
     final hasLongitude = reader.readBool();
     final hasLocationName = reader.readBool();
     
-    return Event(
+    final event = Event(
       id: reader.readString(),
       title: reader.readString(),
       date: DateTime.parse(reader.readString()),
@@ -23,6 +23,21 @@ class EventAdapter extends TypeAdapter<Event> {
       longitude: hasLongitude ? reader.readDouble() : null,
       locationName: hasLocationName ? reader.readString() : null,
     );
+    
+    // Read category and colorHex if they exist (for backward compatibility)
+    try {
+      final hasCategory = reader.readBool();
+      if (hasCategory) {
+        event.category = reader.readString();
+        event.colorHex = reader.readString();
+      }
+    } catch (e) {
+      // Old format, use defaults
+      event.category = 'General';
+      event.colorHex = '#808080';
+    }
+    
+    return event;
   }
 
   @override
@@ -41,6 +56,11 @@ class EventAdapter extends TypeAdapter<Event> {
     if (obj.latitude != null) writer.writeDouble(obj.latitude!);
     if (obj.longitude != null) writer.writeDouble(obj.longitude!);
     if (obj.locationName != null) writer.writeString(obj.locationName!);
+    
+    // Write category and colorHex
+    writer.writeBool(true); // Always has category now
+    writer.writeString(obj.category);
+    writer.writeString(obj.colorHex);
   }
 }
 

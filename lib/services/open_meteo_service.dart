@@ -4,18 +4,21 @@ import 'package:http/http.dart' as http;
 
 /// Service for fetching weather data from Open-Meteo API
 class OpenMeteoService {
-  // Istanbul coordinates (hardcoded for now)
-  static const double _latitude = 41.0082;
-  static const double _longitude = 28.9784;
-  
   static const String _baseUrl = 'https://api.open-meteo.com/v1/forecast';
 
-  /// Fetch current weather for Istanbul
-  /// Returns formatted string like "Istanbul: 15°C, Rainy"
-  static Future<String> getCurrentWeather() async {
+  /// Fetch current weather for given coordinates
+  /// [latitude] - Latitude coordinate
+  /// [longitude] - Longitude coordinate
+  /// [cityName] - Optional city name for display (e.g., "Ankara")
+  /// Returns formatted string like "Ankara: 15°C, Rainy"
+  static Future<String> getCurrentWeather(
+    double latitude,
+    double longitude, {
+    String? cityName,
+  }) async {
     try {
       final url = Uri.parse(
-        '$_baseUrl?latitude=$_latitude&longitude=$_longitude&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto'
+        '$_baseUrl?latitude=$latitude&longitude=$longitude&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto'
       );
 
       debugPrint('Fetching weather from: $url');
@@ -33,19 +36,22 @@ class OpenMeteoService {
         // Get weather description
         final weatherDescription = getWeatherDescription(weatherCode);
 
-        // Format: "Istanbul: 15°C, Rainy"
-        final result = 'Istanbul: ${temperature.round()}°C, $weatherDescription';
+        // Format: "CityName: 15°C, Rainy" or "Location: 15°C, Rainy" if cityName is null
+        final locationName = cityName ?? 'Location';
+        final result = '$locationName: ${temperature.round()}°C, $weatherDescription';
         
         debugPrint('Weather fetched successfully: $result');
         return result;
       } else {
         debugPrint('Weather API error: ${response.statusCode}');
-        return 'Istanbul: Weather unavailable';
+        final locationName = cityName ?? 'Location';
+        return '$locationName: Weather unavailable';
       }
     } catch (e, stackTrace) {
       debugPrint('Error fetching weather: $e');
       debugPrint('Stack trace: $stackTrace');
-      return 'Istanbul: Weather unavailable';
+      final locationName = cityName ?? 'Location';
+      return '$locationName: Weather unavailable';
     }
   }
 
