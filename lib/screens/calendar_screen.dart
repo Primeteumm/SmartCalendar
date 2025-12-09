@@ -11,6 +11,7 @@ import '../screens/add_note_screen.dart';
 import '../models/note.dart';
 import '../widgets/scan_schedule_dialog.dart';
 import '../widgets/daily_briefing_dialog.dart';
+import '../widgets/reschedule_review_dialog.dart';
 import '../services/open_meteo_service.dart';
 import '../services/gemini_service.dart';
 import '../services/location_manager.dart';
@@ -33,6 +34,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
   // Draggable AI button position
   Offset _aiButtonPosition = const Offset(20, 100);
   bool _isDragging = false;
+  
+  // Draggable Rescue Day button position
+  Offset _rescueButtonPosition = const Offset(20, 100); // Will be set to right side
+  bool _isDraggingRescue = false;
+  
   static const double _buttonSize = 64.0;
   static const double _snapThreshold = 50.0; // Distance from edge to snap
 
@@ -47,6 +53,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void initState() {
     super.initState();
     _loadAiButtonPosition();
+    _loadRescueButtonPosition();
     // Check for user name and load briefing
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkUserNameAndLoadBriefing();
@@ -95,6 +102,40 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('ai_button_x', position.dx);
     await prefs.setDouble('ai_button_y', position.dy);
+  }
+
+  Future<void> _loadRescueButtonPosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Check if position is saved, otherwise use default right side
+    final savedX = prefs.getDouble('rescue_button_x');
+    final savedY = prefs.getDouble('rescue_button_y');
+    
+    if (savedX != null && savedY != null) {
+      setState(() {
+        _rescueButtonPosition = Offset(savedX, savedY);
+      });
+    } else {
+      // Default to right side middle - will be set after first build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final screenWidth = MediaQuery.of(context).size.width;
+          final screenHeight = MediaQuery.of(context).size.height;
+          setState(() {
+            _rescueButtonPosition = Offset(
+              screenWidth - _buttonSize - 20,
+              screenHeight / 2 - _buttonSize / 2,
+            );
+          });
+        }
+      });
+    }
+  }
+
+  Future<void> _saveRescueButtonPosition(Offset position) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('rescue_button_x', position.dx);
+    await prefs.setDouble('rescue_button_y', position.dy);
   }
 
   /// Check if user name exists, show dialog if not, then load briefing
@@ -533,6 +574,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
           final theme = Theme.of(context);
           
+          // Check for overdue events
+          final overdueEvents = eventProvider.getOverdueEvents();
+          final hasOverdueEvents = overdueEvents.isNotEmpty;
+          
           return Stack(
             children: [
               // Calendar - takes full screen
@@ -615,6 +660,46 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: _buildDraggableAiButton(theme),
                 ),
               ),
+              // Draggable Rescue Day Button
+              if (hasOverdueEvents)
+                Positioned(
+                  left: _rescueButtonPosition.dx,
+                  top: _rescueButtonPosition.dy,
+                  child: GestureDetector(
+                    onPanUpdate: (details) {
+                      setState(() {
+                        _isDraggingRescue = true;
+                        final newPosition = _rescueButtonPosition + details.delta;
+                        final screenWidth = MediaQuery.of(context).size.width;
+                        final screenHeight = MediaQuery.of(context).size.height;
+                        
+                        // Constrain to screen bounds
+                        final constrainedPosition = Offset(
+                          newPosition.dx.clamp(0.0, screenWidth - _buttonSize),
+                          newPosition.dy.clamp(0.0, screenHeight - _buttonSize),
+                        );
+                        
+                        _rescueButtonPosition = constrainedPosition;
+                      });
+                    },
+                    onPanEnd: (details) {
+                      setState(() {
+                        _isDraggingRescue = false;
+                        final screenWidth = MediaQuery.of(context).size.width;
+                        final screenHeight = MediaQuery.of(context).size.height;
+                        
+                        // Snap to nearest edge
+                        _rescueButtonPosition = _snapToEdge(
+                          _rescueButtonPosition,
+                          screenWidth,
+                          screenHeight,
+                        );
+                      });
+                      _saveRescueButtonPosition(_rescueButtonPosition);
+                    },
+                    child: _buildDraggableRescueButton(theme, overdueEvents.length),
+                  ),
+                ),
             ],
           );
         },
@@ -690,6 +775,98 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 color: theme.colorScheme.onPrimary.withOpacity(0.9),
                 size: 28,
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDraggableRescueButton(ThemeData theme, int overdueCount) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      transform: Matrix4.identity()..scale(_isDraggingRescue ? 1.1 : 1.0),
+      child: Container(
+        width: _buttonSize,
+        height: _buttonSize,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              Colors.orange.shade600.withOpacity(0.5),
+              Colors.red.shade500.withOpacity(0.5),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.red.withOpacity(_isDraggingRescue ? 0.2 : 0.15),
+              blurRadius: _isDraggingRescue ? 12 : 8,
+              offset: Offset(0, _isDraggingRescue ? 3 : 2),
+              spreadRadius: 0,
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (context) => const RescheduleReviewDialog(),
+              );
+            },
+            borderRadius: BorderRadius.circular(_buttonSize / 2),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Emergency icon
+                Icon(
+                  Icons.emergency,
+                  color: Colors.white.withOpacity(0.9),
+                  size: 28,
+                ),
+                // Badge for overdue count
+                if (overdueCount > 0)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Center(
+                        child: Text(
+                          overdueCount > 9 ? '9+' : '$overdueCount',
+                          style: TextStyle(
+                            color: Colors.red.shade600,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ),

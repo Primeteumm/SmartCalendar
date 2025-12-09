@@ -855,6 +855,158 @@ Now generate the insights:''';
     }
   }
 
+  /// Suggest reschedule plan for overdue tasks
+  ///
+  /// [overdueTasks] - List of overdue events that need rescheduling
+  /// [fixedFutureEvents] - List of future events that cannot be moved (constraints)
+  /// Returns a list of reschedule suggestions with new times
+  static Future<List<Map<String, dynamic>>> suggestReschedule(
+    List<Map<String, dynamic>> overdueTasks,
+    List<Map<String, dynamic>> fixedFutureEvents,
+  ) async {
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      await initialize();
+      if (_apiKey == null || _apiKey!.isEmpty) {
+        debugPrint('ERROR: API Key is still null after initialization');
+        return [];
+      }
+    }
+
+    final now = DateTime.now();
+    final currentDate = DateFormat('yyyy-MM-dd').format(now);
+    final currentTime = DateFormat('HH:mm').format(now);
+
+    // Format overdue tasks
+    final overdueText = overdueTasks.map((task) {
+      final originalDate = DateTime.parse(task['date']);
+      final originalTime = task['time'] ?? 'All Day';
+      return 'ID: ${task['id']}, Title: ${task['title']}, Original: ${DateFormat('yyyy-MM-dd').format(originalDate)} $originalTime';
+    }).join('\n');
+
+    // Format fixed future events
+    final fixedText = fixedFutureEvents.isEmpty
+        ? 'No fixed events scheduled.'
+        : fixedFutureEvents.map((event) {
+            final eventDate = DateTime.parse(event['date']);
+            final eventTime = event['time'] ?? 'All Day';
+            return '${DateFormat('yyyy-MM-dd').format(eventDate)} $eventTime: ${event['title']}';
+          }).join('\n');
+
+    final systemPrompt = '''You are a Time Management Expert for a calendar application.
+
+Current Time: $currentDate $currentTime
+
+Task: Reschedule these Overdue Tasks:
+$overdueText
+
+Constraint: Do NOT overlap with these Fixed Events:
+$fixedText
+
+Strategy: 
+- Fill empty slots after Current Time ($currentTime) TODAY if available
+- If today is full, move to TOMORROW morning (prefer 08:00-12:00)
+- Avoid overlapping with fixed events
+- Space tasks at least 1 hour apart
+- For all-day tasks, suggest a specific time (prefer morning)
+
+Output: Return ONLY a JSON array of objects:
+[
+  {
+    "event_id": "id_1",
+    "original_time": "ISO8601_STRING",
+    "proposed_start_time": "ISO8601_STRING",
+    "proposed_end_time": "ISO8601_STRING",
+    "reason": "Brief explanation"
+  },
+  ...
+]
+
+IMPORTANT:
+- Use ISO 8601 format: YYYY-MM-DDTHH:mm:ss
+- Output ONLY the JSON array, no other text
+- If no suitable slots found, return empty array: []''';
+
+    try {
+      final requestBody = {
+        'contents': [
+          {
+            'parts': [
+              {
+                'text': systemPrompt
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.3, // Moderate temperature for creative but logical scheduling
+          'topK': 40,
+          'topP': 0.95,
+        }
+      };
+
+      final response = await http.post(
+        Uri.parse(_baseUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': _apiKey!,
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      debugPrint('Reschedule plan response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
+        if (responseData['candidates'] != null &&
+            responseData['candidates'].isNotEmpty &&
+            responseData['candidates'][0]['content'] != null &&
+            responseData['candidates'][0]['content']['parts'] != null &&
+            responseData['candidates'][0]['content']['parts'].isNotEmpty) {
+          String text = responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+
+          // Clean the response (remove markdown code blocks if present)
+          text = text.trim();
+          if (text.startsWith('```json')) {
+            text = text.substring(7);
+          }
+          if (text.startsWith('```')) {
+            text = text.substring(3);
+          }
+          if (text.endsWith('```')) {
+            text = text.substring(0, text.length - 3);
+          }
+          text = text.trim();
+
+          // Parse JSON array
+          try {
+            final List<dynamic> suggestions = jsonDecode(text);
+            return suggestions.map<Map<String, dynamic>>((s) {
+              return {
+                'event_id': s['event_id'] as String,
+                'original_time': s['original_time'] as String,
+                'proposed_start_time': s['proposed_start_time'] as String,
+                'proposed_end_time': s['proposed_end_time'] as String? ?? s['proposed_start_time'] as String,
+                'reason': s['reason'] as String? ?? 'Rescheduled',
+              };
+            }).toList();
+          } catch (e) {
+            debugPrint('Error parsing reschedule suggestions: $e');
+            debugPrint('Response text: $text');
+            return [];
+          }
+        }
+      }
+
+      debugPrint('Failed to get reschedule plan. Status: ${response.statusCode}');
+      return [];
+    } catch (e, stackTrace) {
+      debugPrint('Error generating reschedule plan: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return [];
+    }
+  }
+
   static bool get isInitialized => _apiKey != null && _apiKey!.isNotEmpty;
 }
 

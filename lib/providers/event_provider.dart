@@ -89,5 +89,30 @@ class EventProvider with ChangeNotifier {
     
     return buffer.toString();
   }
+
+  /// Get overdue events (incomplete events that have passed their end time)
+  List<Event> getOverdueEvents() {
+    final now = DateTime.now();
+    return _events.where((event) => !event.isCompleted && event.endTime.isBefore(now)).toList();
+  }
+
+  /// Get future events (events that have not yet started)
+  List<Event> getFutureEvents() {
+    final now = DateTime.now();
+    return _events.where((event) => event.startTime.isAfter(now)).toList();
+  }
+
+  /// Reschedule an event to a new date and time
+  Future<void> rescheduleEvent(String eventId, DateTime newStartTime) async {
+    final event = _events.firstWhere(
+      (e) => e.id == eventId,
+      orElse: () => throw Exception('Event not found: $eventId'),
+    );
+
+    event.date = DateTime(newStartTime.year, newStartTime.month, newStartTime.day);
+    event.time = '${newStartTime.hour.toString().padLeft(2, '0')}:${newStartTime.minute.toString().padLeft(2, '0')}';
+    event.isCompleted = false; // Rescheduled tasks are pending again
+    await updateEvent(event);
+  }
 }
 
