@@ -37,6 +37,14 @@ class EventAdapter extends TypeAdapter<Event> {
       event.colorHex = '#808080';
     }
     
+    // Read isCompleted if it exists (for backward compatibility)
+    try {
+      event.isCompleted = reader.readBool();
+    } catch (e) {
+      // Old format, default to false
+      event.isCompleted = false;
+    }
+    
     return event;
   }
 
@@ -61,6 +69,9 @@ class EventAdapter extends TypeAdapter<Event> {
     writer.writeBool(true); // Always has category now
     writer.writeString(obj.category);
     writer.writeString(obj.colorHex);
+    
+    // Write isCompleted
+    writer.writeBool(obj.isCompleted);
   }
 }
 
