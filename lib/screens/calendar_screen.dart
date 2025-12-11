@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import '../providers/event_provider.dart';
 import '../providers/note_provider.dart';
 import '../widgets/dynamic_calendar.dart';
@@ -9,12 +10,17 @@ import '../widgets/notes_section.dart';
 import '../widgets/view_mode_selector.dart';
 import '../screens/add_note_screen.dart';
 import '../models/note.dart';
+import '../models/calendar_action.dart';
 import '../widgets/scan_schedule_dialog.dart';
 import '../widgets/daily_briefing_dialog.dart';
 import '../widgets/reschedule_review_dialog.dart';
+import '../widgets/listening_sheet.dart';
+import '../screens/voice_input_screen.dart';
 import '../services/open_meteo_service.dart';
 import '../services/gemini_service.dart';
 import '../services/location_manager.dart';
+import '../services/voice_service.dart';
+import '../services/calendar_action_parser.dart';
 import 'settings_screen.dart';
 import 'ai_assistant_screen.dart';
 import 'insights_screen.dart';
@@ -500,6 +506,226 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
   }
 
+  /// Handle voice command - show listening sheet and process speech
+  Future<void> _handleVoiceCommand() async {
+    // Check and request microphone permission
+    final hasPermission = await VoiceService.checkPermission();
+    if (!hasPermission) {
+      final granted = await VoiceService.requestPermission();
+      if (!granted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Microphone permission is required for voice commands'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    // Initialize voice service
+    final initialized = await VoiceService.initialize();
+    if (!initialized) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Speech recognition is not available'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    String? transcription;
+
+    // Show listening sheet and wait for result
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return PopScope(
+          canPop: true,
+          onPopInvoked: (didPop) {
+            if (didPop) {
+              VoiceService.stop();
+              VoiceService.cancel();
+            }
+          },
+          child: ListeningSheet(
+            onTextReceived: (text) {
+              transcription = text;
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop(text);
+              }
+            },
+            onCancel: () {
+              VoiceService.stop();
+              VoiceService.cancel();
+              if (Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        );
+      },
+    );
+
+    // Process the result
+    final textToProcess = result ?? transcription;
+    if (textToProcess == null || textToProcess.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No speech detected. Please try again.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Show processing indicator
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text('Processing: "$textToProcess"'),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+
+    // Send to AI for parsing
+    try {
+      final aiResponse = await GeminiService.sendCalendarMessage(textToProcess);
+      final responseText = aiResponse['response'] as String? ?? '';
+
+      if (responseText.isEmpty) {
+        throw Exception('Empty response from AI');
+      }
+
+      // Parse the response
+      CalendarAction? calendarAction = CalendarActionParser.parseResponse(responseText);
+
+      // If parsing failed but has calendar intent, try fallback
+      if (calendarAction == null && CalendarActionParser.hasCalendarIntent(responseText)) {
+        calendarAction = CalendarActionParser.parseResponse(responseText);
+      }
+
+      if (calendarAction == null) {
+        // Create fallback action
+        calendarAction = CalendarAction(
+          noteContent: textToProcess,
+          datetime: DateTime.now(),
+          isAllDay: true,
+          category: 'General',
+          colorHex: '#808080',
+        );
+      }
+
+      // Save the calendar action
+      final saved = await _saveCalendarAction(calendarAction, userMessage: textToProcess);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        
+        if (saved) {
+          // Show success message
+          final dateFormat = DateFormat('d MMMM yyyy', 'en_US');
+          final timeFormat = DateFormat('HH:mm');
+          final formattedDate = dateFormat.format(calendarAction.datetime);
+          final displayText = calendarAction.displayTitle;
+          
+          String message;
+          if (calendarAction.isAllDay) {
+            message = 'Added: $displayText ($formattedDate)';
+          } else {
+            final formattedTime = timeFormat.format(calendarAction.datetime);
+            message = 'Added: $displayText ($formattedDate at $formattedTime)';
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(message)),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to add event. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error processing voice command: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Save calendar action as Event or Note
+  Future<bool> _saveCalendarAction(CalendarAction action, {required String userMessage}) async {
+    try {
+      // Always create as Note (as per current app structure)
+      final note = Note(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        eventId: '',
+        content: action.noteContent,
+        createdAt: DateTime.now(),
+        title: action.displayTitle.isNotEmpty
+            ? action.displayTitle
+            : action.noteContent.split('\n').first,
+        date: action.datetime,
+        category: action.category,
+        colorHex: action.colorHex,
+      );
+
+      final noteProvider = Provider.of<NoteProvider>(context, listen: false);
+      await noteProvider.addNote(note);
+      await noteProvider.loadNotes();
+
+      debugPrint('Voice command saved as note: ${note.id}');
+      return true;
+    } catch (e) {
+      debugPrint('Error saving calendar action: $e');
+      return false;
+    }
+  }
 
   /// Snap button to nearest edge if close enough
   Offset _snapToEdge(Offset position, double screenWidth, double screenHeight) {
@@ -704,26 +930,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Voice command button
+          FloatingActionButton(
+            heroTag: 'voice',
+            onPressed: _handleVoiceCommand,
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+            child: const Icon(Icons.mic),
+          ),
+          const SizedBox(height: 12),
+          // Add note button
+          FloatingActionButton(
+            heroTag: 'add',
             onPressed: () async {
-          final note = await Navigator.of(context).push<Note>(
+              final note = await Navigator.of(context).push<Note>(
                 MaterialPageRoute(
-              builder: (context) => AddNoteScreen(initialDate: _selectedDate),
-              fullscreenDialog: true,
-            ),
-                );
+                  builder: (context) => AddNoteScreen(initialDate: _selectedDate),
+                  fullscreenDialog: true,
+                ),
+              );
 
-          if (note != null && mounted) {
-            await Provider.of<NoteProvider>(context, listen: false).addNote(note);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Note added successfully')),
-                    );
-                  }
+              if (note != null && mounted) {
+                await Provider.of<NoteProvider>(context, listen: false).addNote(note);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Note added successfully')),
+                  );
+                }
               }
             },
-        child: const Icon(Icons.add),
+            child: const Icon(Icons.add),
           ),
+        ],
+      ),
     );
   }
 

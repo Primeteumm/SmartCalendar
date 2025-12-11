@@ -49,6 +49,10 @@
 	<string>This app needs location access to show event locations on the map.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs location access to show event locations on the map.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+    <string>Please allow me to transcribe what you say.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>We need a microphone to listen to voice commands.</string>
 </dict>
 </plist>
 
