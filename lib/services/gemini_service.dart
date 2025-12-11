@@ -296,6 +296,238 @@ Example for vague request "That thing we discussed":
     }
   }
 
+  /// Process a brain dump text and extract multiple items (events, tasks, notes)
+  /// Returns a list of parsed items
+  static Future<List<Map<String, dynamic>>> processBrainDump(String brainDumpText) async {
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      await initialize();
+      if (_apiKey == null || _apiKey!.isEmpty) {
+        debugPrint('ERROR: API Key is still null after initialization');
+        return [];
+      }
+    }
+
+    // Get current date and time from device
+    final now = DateTime.now();
+    final currentDate = DateFormat('yyyy-MM-dd').format(now);
+    final currentDateEnglish = DateFormat('d MMMM yyyy', 'en_US').format(now);
+    final dayOfWeek = DateFormat('EEEE', 'en_US').format(now);
+    final currentTime = DateFormat('HH:mm').format(now);
+
+    // System prompt for brain dump processing
+    final systemPrompt = '''You are an intelligent personal secretary for SmartCalendar app.
+
+IMPORTANT: Current Time: ${currentDateEnglish} (${dayOfWeek}), which is ${currentDate} in ISO format. Current time is ${currentTime}.
+
+TASK: Analyze the user's raw stream of consciousness text (brain dump). Identify distinct items and categorize them.
+
+CATEGORIES:
+- "event": Has a specific date/time (e.g., "Meeting tomorrow at 2 PM", "Physics exam on Dec 15")
+- "task": A todo item or reminder without specific time (e.g., "Buy milk", "Call Mom", "Finish homework")
+- "note": General information or note (e.g., "Remember that John likes coffee", "Project deadline is next month")
+
+OUTPUT FORMAT - JSON ARRAY:
+You MUST respond with ONLY a JSON ARRAY. Each item in the array represents one distinct item extracted from the brain dump.
+
+[
+  {
+    "type": "event",  // Required: "event", "task", or "note"
+    "title": "STRING (Required - Short title)", 
+    "datetime": "ISO 8601 STRING (Required for events - Format: YYYY-MM-DDTHH:mm:ss. Calculate based on current context: ${currentDate})",
+    "description": "STRING (Optional - Additional details)",
+    "category": "STRING (Optional - School, Work, Social, Health, General)",
+    "color_hex": "STRING (Optional - Hex color code)"
+  },
+  {
+    "type": "task",
+    "title": "STRING (Required)",
+    "description": "STRING (Optional)",
+    "priority": "STRING (Optional - high, medium, low)",
+    "due_date": "ISO 8601 STRING (Optional - Format: YYYY-MM-DDTHH:mm:ss)"
+  },
+  {
+    "type": "note",
+    "title": "STRING (Required)",
+    "description": "STRING (Optional - Full note content)",
+    "date": "ISO 8601 STRING (Optional - Format: YYYY-MM-DDTHH:mm:ss)"
+  }
+]
+
+RULES:
+1. Extract ALL distinct items from the brain dump. Don't miss anything.
+2. For events: Must have datetime field. Parse relative dates based on TODAY (${currentDate}):
+   - "tomorrow" = ${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 1)))}
+   - "next Monday" = calculate the next Monday from today
+   - "Dec 15" = ${now.year}-12-15 (or next year if already passed)
+   - If no time specified, use 12:00:00
+3. For tasks: If no due_date, use today's date. Priority can be inferred from urgency words.
+4. For notes: Use today's date if not specified.
+5. Be smart about categorization:
+   - School/Education keywords → category: "School", color_hex: "#FF0000"
+   - Work/Professional keywords → category: "Work", color_hex: "#0000FF"
+   - Social/Friends keywords → category: "Social", color_hex: "#FFA500"
+   - Health/Fitness keywords → category: "Health", color_hex: "#00FF00"
+   - Default → category: "General", color_hex: "#808080"
+6. If the brain dump is empty or contains no actionable items, return an empty array [].
+
+EXAMPLES:
+
+Input: "Remind me to buy milk and I have a physics exam tomorrow at 9 AM"
+Output:
+[
+  {
+    "type": "task",
+    "title": "Buy milk",
+    "description": "Remind me to buy milk",
+    "priority": "medium",
+    "due_date": "${currentDate}T12:00:00"
+  },
+  {
+    "type": "event",
+    "title": "Physics exam",
+    "datetime": "${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 1)))}T09:00:00",
+    "description": "Physics exam",
+    "category": "School",
+    "color_hex": "#FF0000"
+  }
+]
+
+Input: "Meeting with Ali on Friday at 2 PM, call Mom this weekend, remember that project deadline is next month"
+Output:
+[
+  {
+    "type": "event",
+    "title": "Meeting with Ali",
+    "datetime": "[calculate next Friday]T14:00:00",
+    "description": "Meeting with Ali",
+    "category": "Work",
+    "color_hex": "#0000FF"
+  },
+  {
+    "type": "task",
+    "title": "Call Mom",
+    "description": "Call Mom this weekend",
+    "priority": "medium",
+    "due_date": "${DateFormat('yyyy-MM-dd').format(now.add(const Duration(days: 6)))}T12:00:00"
+  },
+  {
+    "type": "note",
+    "title": "Project deadline",
+    "description": "Project deadline is next month",
+    "date": "${currentDate}T12:00:00"
+  }
+]
+
+Now analyze this brain dump and return ONLY the JSON array:''';
+
+    try {
+      debugPrint('Processing brain dump: ${brainDumpText.substring(0, brainDumpText.length > 50 ? 50 : brainDumpText.length)}...');
+
+      // Prepare the request body
+      final requestBody = {
+        'contents': [
+          {
+            'parts': [
+              {
+                'text': '$systemPrompt\n\nUser Brain Dump:\n$brainDumpText\n\nAssistant (JSON array only):'
+              }
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.3, // Lower temperature for more structured output
+          'topK': 40,
+          'topP': 0.95,
+        }
+      };
+
+      // Make the HTTP POST request
+      final response = await http.post(
+        Uri.parse(_baseUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': _apiKey!,
+        },
+        body: jsonEncode(requestBody),
+      );
+
+      debugPrint('Brain dump response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        
+        // Extract the text from the response
+        if (responseData['candidates'] != null &&
+            responseData['candidates'].isNotEmpty &&
+            responseData['candidates'][0]['content'] != null &&
+            responseData['candidates'][0]['content']['parts'] != null &&
+            responseData['candidates'][0]['content']['parts'].isNotEmpty) {
+          final text = responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+          
+          debugPrint('Brain dump AI response: $text');
+
+          // Extract JSON array from response
+          String? jsonString = _extractJsonArray(text);
+          
+          if (jsonString == null) {
+            debugPrint('No JSON array found in response');
+            return [];
+          }
+
+          // Parse JSON array
+          try {
+            final jsonArray = jsonDecode(jsonString) as List;
+            final items = jsonArray.map((item) => item as Map<String, dynamic>).toList();
+            
+            debugPrint('Successfully parsed ${items.length} items from brain dump');
+            return items;
+          } catch (e) {
+            debugPrint('Error parsing JSON array: $e');
+            return [];
+          }
+        } else {
+          debugPrint('Unexpected response format: ${response.body}');
+          return [];
+        }
+      } else {
+        debugPrint('API Error: ${response.statusCode}');
+        debugPrint('Error body: ${response.body}');
+        return [];
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Error processing brain dump: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return [];
+    }
+  }
+
+  /// Extract JSON array from response text
+  static String? _extractJsonArray(String response) {
+    // Remove leading/trailing whitespace
+    String cleaned = response.trim();
+
+    // Try to find JSON in markdown code blocks
+    final codeBlockRegex = RegExp(r'```(?:json)?\s*\n?(.*?)\n?```', dotAll: true);
+    final codeBlockMatch = codeBlockRegex.firstMatch(cleaned);
+    if (codeBlockMatch != null) {
+      cleaned = codeBlockMatch.group(1)?.trim() ?? cleaned;
+    }
+
+    // Try to find JSON array directly (starts with [ and ends with ])
+    final jsonArrayRegex = RegExp(r'\[[^\]]*(?:\[[^\]]*\][^\]]*)*\]', dotAll: true);
+    final jsonMatch = jsonArrayRegex.firstMatch(cleaned);
+    if (jsonMatch != null) {
+      return jsonMatch.group(0);
+    }
+
+    // If the whole response looks like a JSON array, try it
+    if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
+      return cleaned;
+    }
+
+    return null;
+  }
+
   /// Scan an image and extract calendar events
   /// 
   /// [imageBase64] - Base64 encoded image string

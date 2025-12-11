@@ -49,6 +49,7 @@ dependencies:
   geolocator: ^13.0.1
   geocoding: ^3.0.0
   fl_chart: ^0.69.0
+  speech_to_text: ^7.0.0
 
 dev_dependencies:
   flutter_test:
