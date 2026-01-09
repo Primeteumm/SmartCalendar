@@ -149,7 +149,10 @@ class _MapScreenState extends State<MapScreen> {
               FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
-                  initialCenter: const LatLng(41.0082, 28.9784), // Istanbul default
+                  initialCenter: const LatLng(
+                    41.0082,
+                    28.9784,
+                  ), // Istanbul default
                   initialZoom: 10.0,
                   minZoom: 3.0,
                   maxZoom: 18.0,
@@ -158,16 +161,24 @@ class _MapScreenState extends State<MapScreen> {
                   // MapTiler tile layer with OpenStreetMap fallback
                   TileLayer(
                     urlTemplate: () {
-                      final apiKey = dotenv.isInitialized 
-                          ? (dotenv.env['MAPTILER_API_KEY'] ?? '') 
+                      final apiKey = dotenv.isInitialized
+                          ? (dotenv.env['MAPTILER_API_KEY'] ?? '')
                           : '';
                       if (apiKey.isEmpty) {
-                        // Fallback to OpenStreetMap if no API key
-                        debugPrint('MAPTILER_API_KEY not found, using OpenStreetMap');
-                        return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+                        // Better fallback for OpenStreetMap
+                        debugPrint(
+                          'MAPTILER_API_KEY not found or empty, using OpenStreetMap fallback',
+                        );
+                        return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
                       }
-                      return 'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=$apiKey';
+                      // Standart görünüm (Garantili Çalışır)
+                      final url =
+                          'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=$apiKey';
+                      debugPrint('Loading Standard MapTiler: $url');
+                      return url;
                     }(),
+                    fallbackUrl:
+                        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.smartcalendar.app',
                   ),
                   // Markers layer
@@ -191,139 +202,156 @@ class _MapScreenState extends State<MapScreen> {
                         ),
                       // Event markers
                       ...eventsWithLocation
-                          .where((event) =>
-                              event.latitude != null && event.longitude != null)
-                          .map((event) => Marker(
-                                point: LatLng(
-                                  event.latitude!,
-                                  event.longitude!,
-                                ),
-                                width: 50,
-                                height: 50,
-                                alignment: Alignment(0, 1), // Bottom center - pin tip aligns with point
-                                child: GestureDetector(
-                                  onTap: () {
-                                    _showEventInfo(context, event);
-                                  },
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 50,
-                                          maxHeight: 18,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .primaryContainer,
-                                          borderRadius: BorderRadius.circular(6),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.3),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
+                          .where(
+                            (event) =>
+                                event.latitude != null &&
+                                event.longitude != null,
+                          )
+                          .map(
+                            (event) => Marker(
+                              point: LatLng(event.latitude!, event.longitude!),
+                              width: 50,
+                              height: 50,
+                              alignment: Alignment(
+                                0,
+                                1,
+                              ), // Bottom center - pin tip aligns with point
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showEventInfo(context, event);
+                                },
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 50,
+                                        maxHeight: 18,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primaryContainer,
+                                        borderRadius: BorderRadius.circular(6),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.3,
                                             ),
-                                          ],
-                                        ),
-                                        child: Text(
-                                          event.title.length > 5 
-                                              ? '${event.title.substring(0, 5)}...' 
-                                              : event.title,
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onPrimaryContainer,
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
                                           ),
-                                          textAlign: TextAlign.center,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
+                                        ],
+                                      ),
+                                      child: Text(
+                                        event.title.length > 5
+                                            ? '${event.title.substring(0, 5)}...'
+                                            : event.title,
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimaryContainer,
                                         ),
+                                        textAlign: TextAlign.center,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
                                       ),
-                                      Icon(
-                                        Icons.location_on,
-                                        color: Theme.of(context).colorScheme.primary,
-                                        size: 24,
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                    Icon(
+                                      Icons.location_on,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                      size: 24,
+                                    ),
+                                  ],
                                 ),
-                              )),
+                              ),
+                            ),
+                          ),
                       // Note markers (events created from notes)
                       ...notesWithLocation
-                          .where((note) =>
-                              note.latitude != null && note.longitude != null)
-                          .map((note) => Marker(
-                                point: LatLng(
-                                  note.latitude!,
-                                  note.longitude!,
-                                ),
-                                width: 50,
-                                height: 50,
-                                alignment: Alignment(0, 1), // Bottom center - pin tip aligns with point
-                                child: GestureDetector(
-                                  onTap: () {
-                                    _showNoteInfo(context, note);
-                                  },
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        constraints: const BoxConstraints(
-                                          maxWidth: 50,
-                                          maxHeight: 18,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .secondaryContainer,
-                                          borderRadius: BorderRadius.circular(6),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.3),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
+                          .where(
+                            (note) =>
+                                note.latitude != null && note.longitude != null,
+                          )
+                          .map(
+                            (note) => Marker(
+                              point: LatLng(note.latitude!, note.longitude!),
+                              width: 50,
+                              height: 50,
+                              alignment: Alignment(
+                                0,
+                                1,
+                              ), // Bottom center - pin tip aligns with point
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showNoteInfo(context, note);
+                                },
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 50,
+                                        maxHeight: 18,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.secondaryContainer,
+                                        borderRadius: BorderRadius.circular(6),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.3,
                                             ),
-                                          ],
-                                        ),
-                                        child: Text(
-                                          () {
-                                            final title = note.title ?? 'Event';
-                                            return title.length > 5 
-                                                ? '${title.substring(0, 5)}...' 
-                                                : title;
-                                          }(),
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSecondaryContainer,
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
                                           ),
-                                          textAlign: TextAlign.center,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
+                                        ],
+                                      ),
+                                      child: Text(
+                                        () {
+                                          final title = note.title ?? 'Event';
+                                          return title.length > 5
+                                              ? '${title.substring(0, 5)}...'
+                                              : title;
+                                        }(),
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSecondaryContainer,
                                         ),
+                                        textAlign: TextAlign.center,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
                                       ),
-                                      Icon(
-                                        Icons.location_on,
-                                        color: Theme.of(context).colorScheme.secondary,
-                                        size: 24,
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                    Icon(
+                                      Icons.location_on,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.secondary,
+                                      size: 24,
+                                    ),
+                                  ],
                                 ),
-                              )),
+                              ),
+                            ),
+                          ),
                     ],
                   ),
                 ],
@@ -550,4 +578,3 @@ class _MapScreenState extends State<MapScreen> {
     super.dispose();
   }
 }
-

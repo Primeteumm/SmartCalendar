@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../models/event.dart';
 import '../services/storage_service.dart';
+import '../services/notification_service.dart';
 
 class EventProvider with ChangeNotifier {
   List<Event> _events = [];
@@ -21,12 +22,30 @@ class EventProvider with ChangeNotifier {
   Future<void> addEvent(Event event) async {
     await StorageService.saveEvent(event);
     _events = StorageService.getAllEvents();
+
+    // Schedule notification
+    await NotificationService().scheduleEventNotification(
+      id: event.id.hashCode,
+      title: 'Smart Calendar',
+      body: '${event.title} is beginning now!',
+      scheduledDate: event.startTime,
+    );
+
     notifyListeners();
   }
 
   Future<void> updateEvent(Event event) async {
     await StorageService.saveEvent(event);
     _events = StorageService.getAllEvents();
+
+    // Update notification
+    await NotificationService().scheduleEventNotification(
+      id: event.id.hashCode,
+      title: 'Smart Calendar',
+      body: '${event.title} is beginning now!',
+      scheduledDate: event.startTime,
+    );
+
     notifyListeners();
   }
 
@@ -34,6 +53,10 @@ class EventProvider with ChangeNotifier {
     await StorageService.deleteEvent(id);
     await StorageService.deleteNotesByEventId(id);
     _events = StorageService.getAllEvents();
+
+    // Cancel notification
+    await NotificationService().cancelNotification(id.hashCode);
+
     if (_selectedEvent?.id == id) {
       _selectedEvent = null;
     }
@@ -50,8 +73,9 @@ class EventProvider with ChangeNotifier {
   }
 
   List<Event> getEventsWithLocation() {
-    return _events.where((event) =>
-        event.latitude != null && event.longitude != null).toList();
+    return _events
+        .where((event) => event.latitude != null && event.longitude != null)
+        .toList();
   }
 
   /// Get upcoming events for the next N days as formatted text
@@ -59,24 +83,25 @@ class EventProvider with ChangeNotifier {
   String getUpcomingEventsAsText({int days = 14}) {
     final now = DateTime.now();
     final endDate = now.add(Duration(days: days));
-    
+
     // Filter events within the date range
     final upcomingEvents = _events.where((event) {
       return event.date.isAfter(now.subtract(const Duration(days: 1))) &&
-             event.date.isBefore(endDate.add(const Duration(days: 1)));
+          event.date.isBefore(endDate.add(const Duration(days: 1)));
     }).toList();
-    
+
     // Sort by date
     upcomingEvents.sort((a, b) => a.date.compareTo(b.date));
-    
+
     if (upcomingEvents.isEmpty) {
       return 'No upcoming events in the next $days days.';
     }
-    
+
     // Format events as text
     final buffer = StringBuffer();
     for (final event in upcomingEvents) {
-      final dateStr = '${event.date.year}-${event.date.month.toString().padLeft(2, '0')}-${event.date.day.toString().padLeft(2, '0')}';
+      final dateStr =
+          '${event.date.year}-${event.date.month.toString().padLeft(2, '0')}-${event.date.day.toString().padLeft(2, '0')}';
       final timeStr = event.time ?? 'All Day';
       buffer.writeln('$dateStr $timeStr: ${event.title}');
       if (event.description != null && event.description!.isNotEmpty) {
@@ -86,14 +111,16 @@ class EventProvider with ChangeNotifier {
         buffer.writeln('  Location: ${event.locationName}');
       }
     }
-    
+
     return buffer.toString();
   }
 
   /// Get overdue events (incomplete events that have passed their end time)
   List<Event> getOverdueEvents() {
     final now = DateTime.now();
-    return _events.where((event) => !event.isCompleted && event.endTime.isBefore(now)).toList();
+    return _events
+        .where((event) => !event.isCompleted && event.endTime.isBefore(now))
+        .toList();
   }
 
   /// Get future events (events that have not yet started)
@@ -109,10 +136,14 @@ class EventProvider with ChangeNotifier {
       orElse: () => throw Exception('Event not found: $eventId'),
     );
 
-    event.date = DateTime(newStartTime.year, newStartTime.month, newStartTime.day);
-    event.time = '${newStartTime.hour.toString().padLeft(2, '0')}:${newStartTime.minute.toString().padLeft(2, '0')}';
+    event.date = DateTime(
+      newStartTime.year,
+      newStartTime.month,
+      newStartTime.day,
+    );
+    event.time =
+        '${newStartTime.hour.toString().padLeft(2, '0')}:${newStartTime.minute.toString().padLeft(2, '0')}';
     event.isCompleted = false; // Rescheduled tasks are pending again
     await updateEvent(event);
   }
 }
-

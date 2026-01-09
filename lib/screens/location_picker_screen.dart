@@ -28,7 +28,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   void initState() {
     super.initState();
     if (widget.initialLatitude != null && widget.initialLongitude != null) {
-      _selectedLocation = LatLng(widget.initialLatitude!, widget.initialLongitude!);
+      _selectedLocation = LatLng(
+        widget.initialLatitude!,
+        widget.initialLongitude!,
+      );
       _currentMapCenter = _selectedLocation!;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _mapController.move(_selectedLocation!, 15.0);
@@ -125,9 +128,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         ),
         title: Text(
           'Select Location',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         actions: [
           if (_isLoadingLocation)
@@ -171,7 +174,15 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${dotenv.isInitialized ? (dotenv.env['MAPTILER_API_KEY'] ?? '') : ''}',
+                urlTemplate: () {
+                  final apiKey = dotenv.isInitialized
+                      ? (dotenv.env['MAPTILER_API_KEY'] ?? '')
+                      : '';
+                  if (apiKey.isEmpty) {
+                    return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                  }
+                  return 'https://api.maptiler.com/maps/019ba219-501c-796c-a5e2-83eb4d97e900/256/{z}/{x}/{y}.png?key=$apiKey';
+                }(),
                 userAgentPackageName: 'com.smartcalendar.app',
               ),
               if (_selectedLocation != null)
@@ -181,7 +192,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       point: _selectedLocation!,
                       width: 50,
                       height: 50,
-                      alignment: Alignment(0, 1), // Bottom center - pin tip aligns with point
+                      alignment: Alignment(
+                        0,
+                        1,
+                      ), // Bottom center - pin tip aligns with point
                       child: Icon(
                         Icons.location_on,
                         color: Theme.of(context).colorScheme.primary,
@@ -213,7 +227,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceVariant.withOpacity(0.8),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -229,7 +245,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _selectedLocation != null ? 'Selected Location' : 'Map Center',
+                            _selectedLocation != null
+                                ? 'Selected Location'
+                                : 'Map Center',
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
                           const SizedBox(height: 4),
@@ -237,9 +255,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                             _selectedLocation != null
                                 ? '${_selectedLocation!.latitude.toStringAsFixed(6)}, ${_selectedLocation!.longitude.toStringAsFixed(6)}'
                                 : '${_currentMapCenter.latitude.toStringAsFixed(6)}, ${_currentMapCenter.longitude.toStringAsFixed(6)}',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -272,4 +289,3 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     super.dispose();
   }
 }
-

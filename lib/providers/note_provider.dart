@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/note.dart';
 import '../services/storage_service.dart';
+import '../services/notification_service.dart';
 
 class NoteProvider with ChangeNotifier {
   List<Note> _notes = [];
@@ -21,6 +22,16 @@ class NoteProvider with ChangeNotifier {
     await StorageService.saveNote(note);
     // Reload all notes to ensure consistency
     _notes = StorageService.getAllNotes();
+
+    // Schedule notification
+    final displayTitle = note.title ?? 'Note';
+    await NotificationService().scheduleEventNotification(
+      id: note.id.hashCode,
+      title: 'Smart Calendar',
+      body: '$displayTitle is beginning now!',
+      scheduledDate: note.date,
+    );
+
     notifyListeners();
     debugPrint('Note added: ${note.id}, Total notes: ${_notes.length}');
     debugPrint('Note date: ${note.date}, Title: ${note.title}');
@@ -29,12 +40,26 @@ class NoteProvider with ChangeNotifier {
   Future<void> updateNote(Note note) async {
     await StorageService.saveNote(note);
     _notes = StorageService.getAllNotes();
+
+    // Update notification
+    final displayTitle = note.title ?? 'Note';
+    await NotificationService().scheduleEventNotification(
+      id: note.id.hashCode,
+      title: 'Smart Calendar',
+      body: '$displayTitle is beginning now!',
+      scheduledDate: note.date,
+    );
+
     notifyListeners();
   }
 
   Future<void> deleteNote(String id) async {
     await StorageService.deleteNote(id);
     _notes = StorageService.getAllNotes();
+
+    // Cancel notification
+    await NotificationService().cancelNotification(id.hashCode);
+
     notifyListeners();
   }
 
@@ -47,8 +72,9 @@ class NoteProvider with ChangeNotifier {
   }
 
   List<Note> getNotesWithLocation() {
-    return _notes.where((note) =>
-        note.latitude != null && note.longitude != null).toList();
+    return _notes
+        .where((note) => note.latitude != null && note.longitude != null)
+        .toList();
   }
 
   /// Get upcoming notes for the next N days as formatted text
@@ -56,28 +82,29 @@ class NoteProvider with ChangeNotifier {
   String getUpcomingNotesAsText({int days = 14}) {
     final now = DateTime.now();
     final endDate = now.add(Duration(days: days));
-    
+
     // Filter notes within the date range
     final upcomingNotes = _notes.where((note) {
       return note.date.isAfter(now.subtract(const Duration(days: 1))) &&
-             note.date.isBefore(endDate.add(const Duration(days: 1)));
+          note.date.isBefore(endDate.add(const Duration(days: 1)));
     }).toList();
-    
+
     // Sort by date
     upcomingNotes.sort((a, b) => a.date.compareTo(b.date));
-    
+
     if (upcomingNotes.isEmpty) {
       return 'No upcoming notes in the next $days days.';
     }
-    
+
     // Format notes as text
     final buffer = StringBuffer();
     for (final note in upcomingNotes) {
-      final dateStr = '${note.date.year}-${note.date.month.toString().padLeft(2, '0')}-${note.date.day.toString().padLeft(2, '0')}';
-      final timeStr = note.date.hour == 12 && note.date.minute == 0 
-          ? 'All Day' 
+      final dateStr =
+          '${note.date.year}-${note.date.month.toString().padLeft(2, '0')}-${note.date.day.toString().padLeft(2, '0')}';
+      final timeStr = note.date.hour == 12 && note.date.minute == 0
+          ? 'All Day'
           : '${note.date.hour.toString().padLeft(2, '0')}:${note.date.minute.toString().padLeft(2, '0')}';
-      
+
       // Extract note content (may be JSON or plain text)
       String noteContent = note.content;
       try {
@@ -89,16 +116,16 @@ class NoteProvider with ChangeNotifier {
       } catch (_) {
         // If not JSON, use content as-is
       }
-      
-      final displayTitle = note.title ?? noteContent.split('\n').first.split('.').first.trim();
+
+      final displayTitle =
+          note.title ?? noteContent.split('\n').first.split('.').first.trim();
       buffer.writeln('$dateStr $timeStr: $displayTitle');
-      if (noteContent != displayTitle && noteContent.length > displayTitle.length) {
+      if (noteContent != displayTitle &&
+          noteContent.length > displayTitle.length) {
         buffer.writeln('  Details: $noteContent');
       }
     }
-    
+
     return buffer.toString();
   }
-
 }
-
